@@ -12,7 +12,6 @@ RUN set -ex \
     && pip3 wheel --wheel-dir=/wheeley /app/dist/*
 
 FROM python:3.7-slim
-EXPOSE 5001
 WORKDIR /app
 
 ARG service_info=UNKNOWN
