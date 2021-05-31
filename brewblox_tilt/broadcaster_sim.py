@@ -1,8 +1,3 @@
-"""
-Intermittently broadcast a status with random data
-"""
-
-
 import asyncio
 import time
 from random import random
@@ -21,17 +16,17 @@ def neutral_random():
     return random() - 0.5
 
 
-class Simulation(repeater.RepeaterFeature):
+class BroadcasterSim(repeater.RepeaterFeature):
 
     def __init__(self, app: web.Application):
         super().__init__(app)
 
-        config = app["config"]
-        self.name = config["name"]
+        config = app['config']
+        self.name = config['name']
         self.interval = 10
-        self.colour = config["simulate"]
-        self.state_topic = config["state_topic"] + f"/{self.name}"
-        self.history_topic = config["history_topic"] + f"/{self.name}"
+        self.colour = config['simulate']
+        self.state_topic = config['state_topic'] + f'/{self.name}'
+        self.history_topic = config['history_topic'] + f'/{self.name}'
 
         self.temp_c = 20
         self.temp_f = (self.temp_c * 9 / 5) + 32
@@ -52,21 +47,21 @@ class Simulation(repeater.RepeaterFeature):
         self.plato += (neutral_random() / 10)
 
         data = {
-            "Temperature[degC]": self.temp_c,
-            "Temperature[degF]": self.temp_f,
-            "Specific gravity": self.sg,
-            "Signal strength[dBm]": self.signal,
-            "Plato[degP]": self.plato,
+            'Temperature[degC]': self.temp_c,
+            'Temperature[degF]': self.temp_f,
+            'Specific gravity': self.sg,
+            'Signal strength[dBm]': self.signal,
+            'Plato[degP]': self.plato,
         }
 
         await mqtt.publish(self.app,
-                           self.state_topic + f"/{self.colour}",
+                           self.state_topic + f'/{self.colour}',
                            {
-                               "key": self.name,
-                               "type": "Tilt.state",
-                               "colour": self.colour,
-                               "timestamp": time_ms(),
-                               "data": data,
+                               'key': self.name,
+                               'type': 'Tilt.state',
+                               'colour': self.colour,
+                               'timestamp': time_ms(),
+                               'data': data,
                            },
                            err=False,
                            retain=True)
@@ -74,11 +69,11 @@ class Simulation(repeater.RepeaterFeature):
         await mqtt.publish(self.app,
                            self.history_topic,
                            {
-                               "key": self.name,
-                               "data": {self.colour: data},
+                               'key': self.name,
+                               'data': {self.colour: data},
                            },
                            err=False)
 
 
 def setup(app: web.Application):
-    features.add(app, Simulation(app))
+    features.add(app, BroadcasterSim(app))
