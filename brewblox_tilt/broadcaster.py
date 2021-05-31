@@ -21,21 +21,21 @@ async def _open_socket() -> Coroutine[None, None, Any]:
     except asyncio.CancelledError:
         raise
     except Exception as e:
-        LOGGER.error(f'Error accessing bluetooth device: {strex(e)}')
-        await asyncio.sleep(10)  # Avoid lockup caused by service reboots
+        LOGGER.error(f'Error accessing bluetooth device: {strex(e)}', exc_info=True)
+        await asyncio.sleep(30)  # Avoid lockup caused by service reboots
         raise web.GracefulExit(1)
 
 
 async def _scan_socket(sock) -> Coroutine[None, None, List[blescan.TiltEventData]]:
-    loop = asyncio.get_event_loop()
     try:
-        return await loop.run_in_executor(blescan.scan, sock, 10)
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, blescan.scan, sock, 10)
 
     except asyncio.CancelledError:
         raise
     except Exception as e:
         LOGGER.error(
-            f'Error accessing bluetooth device whilst scanning: {strex(e)}')
+            f'Error accessing bluetooth device whilst scanning: {strex(e)}', exc_info=True)
         raise web.GracefulExit(1)
 
 
