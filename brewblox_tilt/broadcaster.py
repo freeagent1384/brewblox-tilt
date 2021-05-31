@@ -47,6 +47,7 @@ class Broadcaster(repeater.RepeaterFeature):
 
         config = app['config']
         self.name = config['name']
+        self.scan_interval = max(config['scan_interval'], 0)
         self.state_topic = config['state_topic'] + f'/{self.name}'
         self.history_topic = config['history_topic'] + f'/{self.name}'
 
@@ -54,6 +55,7 @@ class Broadcaster(repeater.RepeaterFeature):
         self.sock = await _open_socket()
 
     async def run(self):
+        await asyncio.sleep(self.scan_interval)
         events = await _scan_socket(self.sock)
         message = self.parser.parse(events)
 

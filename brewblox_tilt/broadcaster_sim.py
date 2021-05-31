@@ -23,7 +23,7 @@ class BroadcasterSim(repeater.RepeaterFeature):
 
         config = app['config']
         self.name = config['name']
-        self.interval = 10
+        self.scan_interval = max(config['scan_interval'], 0)
         self.colour = config['simulate']
         self.state_topic = config['state_topic'] + f'/{self.name}'
         self.history_topic = config['history_topic'] + f'/{self.name}'
@@ -38,7 +38,7 @@ class BroadcasterSim(repeater.RepeaterFeature):
         pass
 
     async def run(self):
-        await asyncio.sleep(self.interval)
+        await asyncio.sleep(self.scan_interval)
 
         self.temp_c += (neutral_random() * 10)
         self.temp_f = (self.temp_c * 9 / 5) + 32

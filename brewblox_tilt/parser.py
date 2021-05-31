@@ -30,7 +30,8 @@ IDS = {
 def deg_f_to_c(value_f: Optional[float]) -> Optional[float]:
     if value_f is None:
         return None
-    return Q_(value_f, ureg.degF).to('degC').magnitude
+    value_c = Q_(value_f, ureg.degF).to('degC').magnitude
+    return round(value_c, 2)
 
 
 def sg_to_plato(sg: Optional[float]) -> Optional[float]:
@@ -41,7 +42,7 @@ def sg_to_plato(sg: Optional[float]) -> Optional[float]:
              + (1111.14 * sg)
              - (630.272 * sg**2)
              + (135.997 * sg**3))
-    return plato
+    return round(plato, 3)
 
 
 class Calibrator():
@@ -53,7 +54,7 @@ class Calibrator():
     def load_file(self, file: str):
         if not os.path.exists(file):
             LOGGER.warning(
-                f"Calibration file not found: {file} . Calibrated values won't be provided.")
+                f"Calibration file `{file}` not found. Calibrated values won't be provided.")
             return
 
         # Load calibration CSV
