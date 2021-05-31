@@ -354,22 +354,15 @@ optional = false
 python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*"
 
 [[package]]
-name = "PyBluez"
+name = "pybluez"
 version = "0.22"
-description = ""
-category = "dev"
+description = "Bluetooth Python extension module"
+category = "main"
 optional = false
 python-versions = "*"
-develop = false
 
 [package.extras]
 ble = ["gattlib (==0.20150805)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/pybluez/pybluez"
-reference = "0.22"
-resolved_reference = "195a1de06475a929004c167a39fefb2de2318379"
 
 [[package]]
 name = "pycodestyle"
@@ -549,7 +542,7 @@ testing = ["pytest (>=4.6)", "pytest-checkdocs (>=1.2.3)", "pytest-flake8", "pyt
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7,<4"
-content-hash = "eb19fe049195a2fe08c108a6103e7225be583a803a5cc49d0f9d9480d20fdafa"
+content-hash = "ac0f131c80adb86b4a618ad7f0cdbbc660db542226f17a485b9ca4fb58500eea"
 
 [metadata.files]
 aiohttp = [
@@ -846,7 +839,14 @@ py = [
     {file = "py-1.10.0-py2.py3-none-any.whl", hash = "sha256:3b80836aa6d1feeaa108e046da6423ab8f6ceda6468545ae8d02d9d58d18818a"},
     {file = "py-1.10.0.tar.gz", hash = "sha256:21b81bda15b66ef5e1a777a21c4dcd9c20ad3efd0b3f817e7a809035269e1bd3"},
 ]
-PyBluez = []
+pybluez = [
+    {file = "PyBluez-0.22-cp27-none-win32.whl", hash = "sha256:15f7deeedf1e1ef06be88a457e8cd69c61e6a621914b082f64644e20a58f8589"},
+    {file = "PyBluez-0.22-cp34-none-win32.whl", hash = "sha256:75009604b0923aec14e8dfa544e5713cb983fbfaa4af1646ae66234901de3979"},
+    {file = "PyBluez-0.22-cp35-none-win32.whl", hash = "sha256:5e2d602894c82291f677c6a8b1bd06fa140f0eaff7e9c4537537faa73df017f0"},
+    {file = "PyBluez-0.22.win32-py2.7.exe", hash = "sha256:7fd5f575d0faca67998f60b3cd4fcf03854a9a7d7798b35e325e324537db3173"},
+    {file = "PyBluez-0.22.win32-py3.4.exe", hash = "sha256:a0592aacfdd0f4deb58f010b14ffde7d44c36ade122f6506065416f2ee10647a"},
+    {file = "PyBluez-0.22.zip", hash = "sha256:4ce006716a54d9d18e8186a3f1c8b12a8e6befecffe8fd5828a291fb694ce49d"},
+]
 pycodestyle = [
     {file = "pycodestyle-2.7.0-py2.py3-none-any.whl", hash = "sha256:514f76d918fcc0b55c6680472f0a37970994e07bbb80725808c17089be302068"},
     {file = "pycodestyle-2.7.0.tar.gz", hash = "sha256:c389c1d06bf7904078ca03399a4816f974a1d590090fecea0c63ec26ebaf1cef"},

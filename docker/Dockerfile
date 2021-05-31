@@ -13,8 +13,7 @@ RUN set -ex \
     && mkdir /wheeley \
     && pip3 install --upgrade pip wheel \
     && pip3 wheel --wheel-dir=/wheeley -r /app/requirements.txt \
-    && pip3 wheel --wheel-dir=/wheeley /app/dist/* \
-    && pip3 wheel --wheel-dir=/wheeley git+https://github.com/pybluez/pybluez#0.23
+    && pip3 wheel --wheel-dir=/wheeley /app/dist/*
 
 FROM python:3.7-slim
 WORKDIR /app
@@ -29,7 +28,7 @@ RUN set -ex \
     && apt-get update \
     && apt-get install -yq \
         libbluetooth-dev \
-    && pip3 install --no-index --find-links=/wheeley brewblox-tilt pybluez \
+    && pip3 install --no-index --find-links=/wheeley brewblox-tilt \
     && rm -rf /wheeley \
     && pip3 freeze
 
