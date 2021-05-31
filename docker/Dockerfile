@@ -7,7 +7,11 @@ ENV PIP_EXTRA_INDEX_URL=https://www.piwheels.org/simple
 ENV PIP_FIND_LINKS=/wheeley
 
 RUN set -ex \
-    && pip3 install wheel \
+    && apt-get update \
+    && apt-get install -yq \
+        libbluetooth-dev \
+    && mkdir /wheeley \
+    && pip3 install --upgrade pip wheel \
     && pip3 wheel --wheel-dir=/wheeley -r /app/requirements.txt \
     && pip3 wheel --wheel-dir=/wheeley /app/dist/*
 
@@ -20,20 +24,12 @@ ENV PYTHONPATH="/usr/lib/python3/dist-packages:${PYTHONPATH}"
 
 COPY --from=base /wheeley /wheeley
 
-RUN \
-  apt-get update && \
-  apt-get install -yq \
-    libglib2.0-dev \
-    libatlas3-base \
-    python3-bluez
-
-RUN pip3 install --no-index --find-links=/wheeley brewblox-tilt \
-    && rm -rf /wheeley \
-    && pip3 freeze \
-    && apt-get update -q \
+RUN set -ex \
+    && apt-get update \
     && apt-get install -yq \
-    libglib2.0-dev \
-    libatlas3-base \
-    python3-bluez
+        libbluetooth-dev \
+    && pip3 install --no-index --find-links=/wheeley brewblox-tilt \
+    && rm -rf /wheeley \
+    && pip3 freeze
 
 ENTRYPOINT ["python3", "-m", "brewblox_tilt"]

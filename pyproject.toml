@@ -1,16 +1,17 @@
 [tool.poetry]
 name = "brewblox-tilt"
 version = "2.1.0"
-description = "Tilt hydrometer service for BrewBlox"
-authors = ["James Sandford <brewblox-tilt@j616s.co.uk>"]
+description = "Tilt hydrometer service for Brewblox"
+authors = ["BrewPi <development@brewpi.com>", "James Sandford <brewblox-tilt@j616s.co.uk>"]
 license = "GPL-3.0"
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.7,<4"
-brewblox-service = "^0.32.2"
+brewblox-service = "^0.32.3"
 numpy = "^1.18.2"
 Pint = "^0.17"
+PyBluez = "0.22"
 
 [tool.poetry.dev-dependencies]
 pytest-flake8 = "^1.0.7"
