@@ -15,7 +15,7 @@ Q_ = ureg.Quantity
 
 SG_CAL_FILE_PATH = '/share/SGCal.csv'
 TEMP_CAL_FILE_PATH = '/share/tempCal.csv'
-IDS = {
+TILT_COLOURS = {
     'a495bb10c5b14b44b5121370f02d74de': 'Red',
     'a495bb20c5b14b44b5121370f02d74de': 'Green',
     'a495bb30c5b14b44b5121370f02d74de': 'Black',
@@ -66,7 +66,7 @@ class Calibrator():
                 cal = None
 
                 colour = line[0].strip().capitalize()
-                if colour not in IDS.values():
+                if colour not in TILT_COLOURS.values():
                     LOGGER.warning(f'Unknown tilt colour `{line[0]}`. Ignoring line.')
                     continue
 
@@ -129,7 +129,7 @@ class EventDataParser():
         # device. Digits 40-44 contain the temperature in f as an integer.
         # Digits 44-48 contain the specific gravity * 1000 (i.e. the 'points)
         # as an integer.
-        colour = IDS.get(event.uuid, None)
+        colour = TILT_COLOURS.get(event.uuid, None)
 
         if colour is None:
             # UUID is not for a Tilt
@@ -167,7 +167,6 @@ class EventDataParser():
 
         If the event is invalid, `message` is returned unchanged.
         """
-
         decoded = self._decode_event_data(event)
         if decoded is None:
             return message
@@ -198,8 +197,8 @@ class EventDataParser():
             'Temperature[degF]': raw_temp_f,
             'Temperature[degC]': raw_temp_c,
             'Specific gravity': raw_sg,
-            'Signal strength[dBm]': event.rssi,
             'Plato[degP]': raw_plato,
+            'Signal strength[dBm]': event.rssi,
         }
 
         if cal_temp_f is not None:
