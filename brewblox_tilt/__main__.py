@@ -16,10 +16,14 @@ def create_parser(default_name='tilt'):
                         'Out-of-bounds measurement values will be discarded. [%(default)s]',
                         type=float,
                         default=2)
-    parser.add_argument('--scan-interval',
-                        help='Interval (in seconds) between Bluetooth scans. [%(default)s]',
+    parser.add_argument('--inactive-scan-interval',
+                        help='Interval (in seconds) between Bluetooth scans while searching for devices. [%(default)s]',
                         type=float,
-                        default=10)
+                        default=5)
+    parser.add_argument('--active-scan-interval',
+                        help='Interval (in seconds) between Bluetooth scans when devices are active. [%(default)s]',
+                        type=float,
+                        default=20)
     parser.add_argument('--simulate',
                         help='Start in simulation mode. '
                         'This will not attempt to read Bluetooth devices, but will publish random values.'

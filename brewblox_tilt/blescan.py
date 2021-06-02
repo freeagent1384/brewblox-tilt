@@ -1,9 +1,25 @@
 import struct
-import sys
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 
 import bluetooth._bluetooth as bluez
+from brewblox_service import brewblox_logger
+
+LOGGER = brewblox_logger(__name__)
+
+LE_META_EVENT = 0x3E
+LE_ADVERTISING_REPORT = 0x02
+TILT_PARAM_LENGTH = 42
+TILT_EVENT_LENGTH = 45  # BLE header bytes + params
+
+# The first bytes for tilt events are static.
+# We can use them to sanity check incoming data.
+TILT_HEADER = bytes([
+    bluez.HCI_EVENT_PKT,
+    LE_META_EVENT,
+    TILT_PARAM_LENGTH,
+    LE_ADVERTISING_REPORT
+])
 
 
 @dataclass
@@ -16,52 +32,62 @@ class TiltEventData:
     rssi: int
 
 
-def returnnumberpacket(pkt: bytes) -> int:
-    myInteger = 0
-    multiple = 256
-    for c in pkt:
-        myInteger += c * multiple
-        multiple = 1
-    return myInteger
+def b2string(pkt: bytes, sep: str = ...) -> str:
+    # bytes.hex() only supports a `sep` argument in python >= 3.8
+    s = bytes.hex(pkt)
+    if sep is ...:
+        return s
+    else:
+        return sep.join(s[i:i+2] for i in range(0, len(s), 2))
 
 
-def returnstringpacket(pkt: bytes) -> str:
-    output: str = ''
-    for c in pkt:
-        output += '%02x' % c
-    return output
+def b2number(pkt: bytes, signed: bool = ...) -> int:
+    return int.from_bytes(pkt, byteorder='big', signed=signed)
 
 
-def printpacket(pkt: bytes):
-    for c in pkt:
-        sys.stdout.write('%02x ' % c)
+def read_packet(pkt: bytes) -> Optional[TiltEventData]:
+    # Packets use the BLE iBeacon spec,
+    # {idx} [{value}] {description}
+    #
+    # 00 [04] HCI opcode (constant, 0x04 -> HCI event)
+    # 01 [3E] LE event (constant)
+    # 02 [2A] Parameter total length (constant, 42)
+    # 03 [02] LE sub-event code (constant, 0x02 -> advertising report)
+    # 04 [01] Number of reports (1)
+    # 05 [03] Event type
+    # 06 [01] Public address type
+    # 07 [??] MAC address start
+    # ...
+    # 12 [??] MAC address end
+    # 13 [1E] ??????
+    # 14 [02] Header length (constant, 2)
+    # 15 [01] Flag data type
+    # 16 [04] LE flags
+    # 17 [1A] Data length (constant, 26)
+    # 18 [FF] Data type
+    # 19 [4C] manufacturer ID - Apple iBeacon
+    # 20 [00] manufacturer ID - Apple iBeacon
+    # 21 [02] type (constant, defined by iBeacon spec)
+    # 22 [15] length (constant, defined by iBeacon spec)
+    # 23 [??] device UUID start
+    # ...
+    # 38 [??] device UUID end
+    # 39 [??] major - temperature (degF)
+    # 40 [??] major - temperature (degF)
+    # 41 [??] minor - specific gravity (scaled to integer)
+    # 42 [??] minor - specific gravity (scaled to integer)
+    # 43 [??] TX power (dBm)
+    # 44 [??] RSSI (dBm)
 
-
-def get_packed_bdaddr(bdaddr_string: str) -> bytes:
-    packable_addr = []
-    addr = bdaddr_string.split(':')
-    addr.reverse()
-    for b in addr:
-        packable_addr.append(int(b, 16))
-    return struct.pack('<BBBBBB', *packable_addr)
-
-
-def packed_bdaddr_to_string(bdaddr_packed: bytes) -> str:
-    return ':'.join('%02x' % i
-                    for i
-                    in struct.unpack('<BBBBBB', bdaddr_packed[::-1]))
-
-
-def twos_complement(num, len) -> int:
-    return num - (1 << len)
-
-
-def hci_enable_le_scan(sock):
-    hci_toggle_le_scan(sock, 0x01)
-
-
-def hci_disable_le_scan(sock):
-    hci_toggle_le_scan(sock, 0x00)
+    if len(pkt) == TILT_EVENT_LENGTH and pkt[:4] == TILT_HEADER:
+        return TiltEventData(
+            mac=b2string(pkt[7:13][::-1], ':'),
+            uuid=b2string(pkt[23:39]),
+            major=b2number(pkt[39:41]),
+            minor=b2number(pkt[41:43]),
+            txpower=b2number(pkt[43:44], True),
+            rssi=b2number(pkt[44:45], True),
+        )
 
 
 def hci_toggle_le_scan(sock, enable):
@@ -72,6 +98,14 @@ def hci_toggle_le_scan(sock, enable):
     bluez.hci_send_cmd(sock, ogf_le_ctl, ocf_le_set_scan_enable, cmd_pkt)
 
 
+def hci_enable_le_scan(sock):
+    hci_toggle_le_scan(sock, 0x01)
+
+
+def hci_disable_le_scan(sock):
+    hci_toggle_le_scan(sock, 0x00)
+
+
 def open_socket():
     sock = bluez.hci_open_dev(0)
     hci_enable_le_scan(sock)
@@ -79,12 +113,9 @@ def open_socket():
 
 
 def scan(sock, loop_count=100) -> List[TiltEventData]:
-    le_meta_event = 0x3e
-    le_advertising_report = 0x02
     old_filter = sock.getsockopt(bluez.SOL_HCI, bluez.HCI_FILTER, 14)
 
     # perform a device inquiry on bluetooth device #0
-    # The inquiry should last 8 * 1.28 = 10.24 seconds
     # before the inquiry is performed, bluez should flush its cache of
     # previously discovered devices
     flt = bluez.hci_filter_new()
@@ -94,37 +125,12 @@ def scan(sock, loop_count=100) -> List[TiltEventData]:
 
     output: List[TiltEventData] = []
 
-    for i in range(0, loop_count):
+    for _ in range(0, loop_count):
         pkt = sock.recv(255)
-        ptype, event, plen = struct.unpack('BBB', pkt[:3])
-        if event == bluez.EVT_INQUIRY_RESULT_WITH_RSSI:
-            i = 0
-        elif event == bluez.EVT_NUM_COMP_PKTS:
-            i = 0
-        elif event == bluez.EVT_DISCONN_COMPLETE:
-            i = 0
-        elif event == le_meta_event:
-            subevent = pkt[3]
-            pkt = pkt[4:]
-            if subevent == le_advertising_report:
-                num_reports = pkt[0]
-                pkt_offset = 0
-                for i in range(0, num_reports):
-                    parsed = TiltEventData(
-                        mac=packed_bdaddr_to_string(
-                            pkt[pkt_offset + 3:pkt_offset + 9]),
-                        uuid=returnstringpacket(
-                            pkt[pkt_offset - 22: pkt_offset - 6]),
-                        major=returnnumberpacket(
-                            pkt[pkt_offset - 6: pkt_offset - 4]),
-                        minor=returnnumberpacket(
-                            pkt[pkt_offset - 4: pkt_offset - 2]),
-                        txpower=twos_complement(
-                            pkt[pkt_offset - 2], 8),
-                        rssi=twos_complement(
-                            pkt[pkt_offset - 1], 8)
-                    )
-                    output.append(parsed)
+        data = read_packet(pkt)
+
+        if data:
+            output.append(data)
 
     sock.setsockopt(bluez.SOL_HCI, bluez.HCI_FILTER, old_filter)
     return output
