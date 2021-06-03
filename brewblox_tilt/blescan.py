@@ -82,8 +82,6 @@ def read_packet(pkt: bytes) -> Optional[TiltEventData]:
     # 43 [??] TX power (dBm)
     # 44 [??] RSSI (dBm)
 
-    LOGGER.info(b2string(pkt))
-
     if len(pkt) == TILT_EVENT_LENGTH and pkt[:4] == TILT_HEADER:
         return TiltEventData(
             mac=b2string(pkt[7:13][::-1], ':'),
@@ -125,7 +123,6 @@ def scan(sock, loop_count=100) -> List[TiltEventData]:
 
         if data:
             output.append(data)
-            LOGGER.info(data)
 
     sock.setsockopt(bluez.SOL_HCI, bluez.HCI_FILTER, old_filter)
     return output

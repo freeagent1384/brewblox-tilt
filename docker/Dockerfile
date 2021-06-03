@@ -28,6 +28,7 @@ RUN set -ex \
     && apt-get update \
     && apt-get install -yq \
         libbluetooth-dev \
+        libatlas-base-dev \
     && pip3 install --no-index --find-links=/wheeley brewblox-tilt \
     && rm -rf /wheeley \
     && pip3 freeze
