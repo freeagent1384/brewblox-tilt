@@ -23,13 +23,12 @@ class BroadcasterSim(repeater.RepeaterFeature):
 
         config = app['config']
         self.name = config['name']
-        self.inactive_scan_interval = max(config['inactive_scan_interval'], 0)
         self.active_scan_interval = max(config['active_scan_interval'], 0)
         self.colour = config['simulate']
         self.state_topic = config['state_topic'] + f'/{self.name}'
         self.history_topic = config['history_topic'] + f'/{self.name}'
 
-        self.interval = self.inactive_scan_interval
+        self.interval = 1
         self.temp_c = 20
         self.temp_f = (self.temp_c * 9 / 5) + 32
         self.sg = 1.05

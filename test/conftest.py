@@ -32,6 +32,7 @@ def app_config() -> dict:
         'upper_bound': 2,
         'inactive_scan_interval': 5,
         'active_scan_interval': 20,
+        'simulate': None,
     }
 
 

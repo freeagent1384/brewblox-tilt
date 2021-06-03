@@ -7,6 +7,9 @@ from brewblox_service import brewblox_logger
 
 LOGGER = brewblox_logger(__name__)
 
+OGF_LE_CTL = 0x08
+OCF_LE_SET_SCAN_ENABLE = 0x000C
+
 LE_META_EVENT = 0x3E
 LE_ADVERTISING_REPORT = 0x02
 TILT_PARAM_LENGTH = 42
@@ -41,7 +44,7 @@ def b2string(pkt: bytes, sep: str = ...) -> str:
         return sep.join(s[i:i+2] for i in range(0, len(s), 2))
 
 
-def b2number(pkt: bytes, signed: bool = ...) -> int:
+def b2number(pkt: bytes, signed: bool) -> int:
     return int.from_bytes(pkt, byteorder='big', signed=signed)
 
 
@@ -79,36 +82,27 @@ def read_packet(pkt: bytes) -> Optional[TiltEventData]:
     # 43 [??] TX power (dBm)
     # 44 [??] RSSI (dBm)
 
+    LOGGER.info(b2string(pkt))
+
     if len(pkt) == TILT_EVENT_LENGTH and pkt[:4] == TILT_HEADER:
         return TiltEventData(
             mac=b2string(pkt[7:13][::-1], ':'),
             uuid=b2string(pkt[23:39]),
-            major=b2number(pkt[39:41]),
-            minor=b2number(pkt[41:43]),
+            major=b2number(pkt[39:41], False),
+            minor=b2number(pkt[41:43], False),
             txpower=b2number(pkt[43:44], True),
             rssi=b2number(pkt[44:45], True),
         )
 
 
-def hci_toggle_le_scan(sock, enable):
-    ogf_le_ctl = 0x08
-    ocf_le_set_scan_enable = 0x000C
-
-    cmd_pkt = struct.pack('<BB', enable, 0x00)
-    bluez.hci_send_cmd(sock, ogf_le_ctl, ocf_le_set_scan_enable, cmd_pkt)
-
-
-def hci_enable_le_scan(sock):
-    hci_toggle_le_scan(sock, 0x01)
-
-
-def hci_disable_le_scan(sock):
-    hci_toggle_le_scan(sock, 0x00)
+def hci_toggle_le_scan(sock, enable: bool):
+    cmd_pkt = struct.pack('<BB', int(enable), 0x00)
+    bluez.hci_send_cmd(sock, OGF_LE_CTL, OCF_LE_SET_SCAN_ENABLE, cmd_pkt)
 
 
 def open_socket():
     sock = bluez.hci_open_dev(0)
-    hci_enable_le_scan(sock)
+    hci_toggle_le_scan(sock, True)
     return sock
 
 
@@ -131,6 +125,7 @@ def scan(sock, loop_count=100) -> List[TiltEventData]:
 
         if data:
             output.append(data)
+            LOGGER.info(data)
 
     sock.setsockopt(bluez.SOL_HCI, bluez.HCI_FILTER, old_filter)
     return output
