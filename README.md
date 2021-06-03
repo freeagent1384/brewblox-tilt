@@ -5,6 +5,7 @@ The [Tilt hydrometer](https://tilthydrometer.com/) is a wireless hydrometer and 
 [Brewblox](https://brewblox.netlify.app) is a modular brewery control system design to work with the BrewPi Spark controller.
 
 This service integrates the Tilt hydrometer into the Brewblox stack.
+You only need a single service: it will track all Tilts in range.
 
 ## Credits
 
@@ -14,14 +15,11 @@ This service is a continuation of [James Sandford](https://github.com/j616)'s [T
 
 ### Install script
 
-To automatically install a new Tilt, you can use the `install_tilt.py` script.
+You can use the `brewblox-ctl` tool to add a new Tilt service to your system.
 This will create the ./tilt directory, and edit your `docker-compose.yml` file.
 
-In your Brewblox directory, run the following commands:
-
-```bash
-curl -O https://raw.githubusercontent.com/BrewBlox/brewblox-tilt/develop/install_tilt.py
-python3 ./install_tilt.py
+```
+brewblox-ctll add-tilt
 ```
 
 ### Or: Manually add the Tilt service to the Brewblox stack
