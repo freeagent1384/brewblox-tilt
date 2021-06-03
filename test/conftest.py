@@ -30,7 +30,9 @@ def app_config() -> dict:
         'debug': False,
         'lower_bound': 0.5,
         'upper_bound': 2,
-        'scan_interval': 10,
+        'inactive_scan_interval': 5,
+        'active_scan_interval': 20,
+        'simulate': None,
     }
 
 
@@ -43,7 +45,8 @@ def sys_args(app_config) -> list:
         '--port', app_config['port'],
         '--lower-bound', app_config['lower_bound'],
         '--upper-bound', app_config['upper_bound'],
-        '--scan-interval', app_config['scan_interval'],
+        '--inactive-scan-interval', app_config['inactive_scan_interval'],
+        '--active-scan-interval', app_config['scan_interval'],
     ]]
 
 
