@@ -19,7 +19,7 @@ You can use the `brewblox-ctl` tool to add a new Tilt service to your system.
 This will create the ./tilt directory, and edit your `docker-compose.yml` file.
 
 ```
-brewblox-ctll add-tilt
+brewblox-ctl add-tilt
 ```
 
 ### Or: Manually add the Tilt service to the Brewblox stack
