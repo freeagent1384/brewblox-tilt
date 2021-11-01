@@ -1,3 +1,4 @@
+import os
 import struct
 from dataclasses import dataclass
 from typing import List, Optional
@@ -99,7 +100,8 @@ def hci_toggle_le_scan(sock, enable: bool):
 
 
 def open_socket():
-    sock = bluez.hci_open_dev(0)
+    dev_idx = int(os.getenv('TILT_HCI_DEV', '0'))
+    sock = bluez.hci_open_dev(dev_idx)
     hci_toggle_le_scan(sock, True)
     return sock
 
