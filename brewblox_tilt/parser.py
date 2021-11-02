@@ -1,13 +1,12 @@
 import csv
 import os.path
+from dataclasses import dataclass
 from functools import reduce
 from typing import List, Optional
 
 import numpy as np
 from brewblox_service import brewblox_logger
 from pint import UnitRegistry
-
-from brewblox_tilt import blescan
 
 LOGGER = brewblox_logger(__name__)
 ureg = UnitRegistry()
@@ -16,15 +15,25 @@ Q_ = ureg.Quantity
 SG_CAL_FILE_PATH = '/share/SGCal.csv'
 TEMP_CAL_FILE_PATH = '/share/tempCal.csv'
 TILT_COLOURS = {
-    'a495bb10c5b14b44b5121370f02d74de': 'Red',
-    'a495bb20c5b14b44b5121370f02d74de': 'Green',
-    'a495bb30c5b14b44b5121370f02d74de': 'Black',
-    'a495bb40c5b14b44b5121370f02d74de': 'Purple',
-    'a495bb50c5b14b44b5121370f02d74de': 'Orange',
-    'a495bb60c5b14b44b5121370f02d74de': 'Blue',
-    'a495bb70c5b14b44b5121370f02d74de': 'Yellow',
-    'a495bb80c5b14b44b5121370f02d74de': 'Pink'
+    'a495bb10-c5b1-4b44-b512-1370f02d74de': 'Red',
+    'a495bb20-c5b1-4b44-b512-1370f02d74de': 'Green',
+    'a495bb30-c5b1-4b44-b512-1370f02d74de': 'Black',
+    'a495bb40-c5b1-4b44-b512-1370f02d74de': 'Purple',
+    'a495bb50-c5b1-4b44-b512-1370f02d74de': 'Orange',
+    'a495bb60-c5b1-4b44-b512-1370f02d74de': 'Blue',
+    'a495bb70-c5b1-4b44-b512-1370f02d74de': 'Yellow',
+    'a495bb80-c5b1-4b44-b512-1370f02d74de': 'Pink'
 }
+
+
+@dataclass
+class TiltEventData:
+    mac: str
+    uuid: str
+    major: int
+    minor: int
+    txpower: int
+    rssi: int
 
 
 def deg_f_to_c(value_f: Optional[float]) -> Optional[float]:
@@ -117,7 +126,7 @@ class EventDataParser():
         self.sg_cal = Calibrator(SG_CAL_FILE_PATH)
         self.temp_cal = Calibrator(TEMP_CAL_FILE_PATH)
 
-    def _decode_event_data(self, event: blescan.TiltEventData) -> Optional[dict]:
+    def _decode_event_data(self, event: TiltEventData) -> Optional[dict]:
         """
         Extract raw temp and SG values from the event data object.
 
@@ -161,7 +170,7 @@ class EventDataParser():
             'is_pro': is_tilt_pro,
         }
 
-    def _add_parsed_event(self, message: dict, event: blescan.TiltEventData) -> dict:
+    def _add_parsed_event(self, message: dict, event: TiltEventData) -> dict:
         """
         Adds raw and calibrated values for a single Tilt event to the combined `message` object.
 
@@ -213,7 +222,7 @@ class EventDataParser():
         message[colour] = submessage
         return message
 
-    def parse(self, events: List[blescan.TiltEventData]) -> dict:
+    def parse(self, events: List[TiltEventData]) -> dict:
         """
         Converts a list of Tilt events into a combined message.
         Tilt colour is used as key, and data includes raw and calibrated values.
