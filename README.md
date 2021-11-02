@@ -37,6 +37,8 @@ mkdir ~/brewblox/tilt
     privileged: true
     network_mode: host
     volumes: ['./tilt:/share']
+    labels:
+      - traefik.enable=false
 ```
 
 Finally, you'll have to bring up the new service using
