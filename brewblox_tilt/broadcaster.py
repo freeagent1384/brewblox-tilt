@@ -74,7 +74,7 @@ class Broadcaster(repeater.RepeaterFeature):
             })
         self.scanner.start()
 
-    async def before_shutdown(self, app: web.Application):
+    async def shutdown(self, app: web.Application):
         if self.scanner:
             self.scanner.stop()
             self.scanner = None
