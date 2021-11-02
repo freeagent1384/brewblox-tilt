@@ -5,6 +5,7 @@ from pathlib import Path
 from aiohttp import web
 from beacontools import (BeaconScanner, BluetoothAddressType,
                          IBeaconAdvertisement, IBeaconFilter)
+from beacontools.scanner import HCIVersion
 from brewblox_service import brewblox_logger, features, mqtt, repeater
 
 from brewblox_tilt import parser
@@ -62,6 +63,16 @@ class Broadcaster(repeater.RepeaterFeature):
                 await asyncio.sleep(HCI_SCAN_INTERVAL_S)
         return device_id
 
+    def apply_pi4_hack(self):
+        # https://github.com/citruz/beacontools/issues/65
+        model_file = Path('/sys/firmware/devicetree/base/model')
+        if not model_file.exists():
+            return
+        content = model_file.read_text()
+        if 'Pi 4' in content:
+            LOGGER.info('Pi 4 detected. Applying Bluetooth version hack.')
+            self.scanner._mon.get_hci_version = lambda: HCIVersion.BT_CORE_SPEC_4_2
+
     async def prepare(self):
         device_id = await self.detect_device_id()
         loop = asyncio.get_running_loop()
@@ -72,6 +83,7 @@ class Broadcaster(repeater.RepeaterFeature):
             scan_parameters={
                 'address_type': BluetoothAddressType.PUBLIC,
             })
+        self.apply_pi4_hack()
         self.scanner.start()
 
     async def shutdown(self, app: web.Application):
