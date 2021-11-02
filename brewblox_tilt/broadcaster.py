@@ -1,40 +1,21 @@
 import asyncio
 import time
-from typing import Any, List
+from pathlib import Path
 
 from aiohttp import web
-from brewblox_service import brewblox_logger, features, mqtt, repeater, strex
+from beacontools import (BeaconScanner, BluetoothAddressType,
+                         IBeaconAdvertisement, IBeaconFilter)
+from brewblox_service import brewblox_logger, features, mqtt, repeater
 
-from brewblox_tilt import blescan, parser
+from brewblox_tilt import parser
 
 LOGGER = brewblox_logger(__name__)
 
-EXIT_DELAY_S = 30
+HCI_SCAN_INTERVAL_S = 30
 
 
 def time_ms():
     return time.time_ns() // 1000000
-
-
-async def _open_socket() -> Any:
-    try:
-        return blescan.open_socket()
-
-    except Exception as e:
-        LOGGER.error(f'Error accessing bluetooth device: {strex(e)}', exc_info=True)
-        await asyncio.sleep(EXIT_DELAY_S)  # Avoid lockup caused by service reboots
-        raise web.GracefulExit(1)
-
-
-async def _scan_socket(sock) -> List[blescan.TiltEventData]:
-    try:
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, blescan.scan, sock, 10)
-
-    except Exception as e:
-        LOGGER.error(f'Error accessing bluetooth device whilst scanning: {strex(e)}', exc_info=True)
-        await asyncio.sleep(EXIT_DELAY_S)  # Avoid lockup caused by service reboots
-        raise web.GracefulExit(1)
 
 
 class Broadcaster(repeater.RepeaterFeature):
@@ -48,18 +29,65 @@ class Broadcaster(repeater.RepeaterFeature):
         self.state_topic = config['state_topic'] + f'/{self.name}'
         self.history_topic = config['history_topic'] + f'/{self.name}'
 
-        self.sock = None
+        self.scanner = None
         self.parser = parser.EventDataParser(app)
         self.interval = 1
         self.prev_num_events = 0
+        self.events: dict[str, parser.TiltEventData] = {}
+
+    @property
+    def scanner_active(self) -> bool:
+        return self.scanner and self.scanner._mon.is_alive()
+
+    async def on_event(self, mac: str, rssi: int, packet: IBeaconAdvertisement, info: dict):
+        LOGGER.debug(f'Recv {mac=} {packet.uuid=}, {packet.major=}, {packet.minor=}')
+        self.events[packet.uuid] = parser.TiltEventData(mac=mac,
+                                                        uuid=packet.uuid,
+                                                        major=packet.major,
+                                                        minor=packet.minor,
+                                                        txpower=packet.tx_power,
+                                                        rssi=rssi)
+
+    async def detect_device_id(self) -> int:
+        bt_dir = Path('/sys/class/bluetooth')
+        device_id: int = None
+        LOGGER.info('Looking for Bluetooth adapter...')
+        while device_id is None:
+            hci_devices = sorted(f.name for f in bt_dir.glob('./hci*'))
+            if hci_devices:
+                device_id = int(hci_devices[0].removeprefix('hci'))
+                LOGGER.info(f'Found Bluetooth adapter hci{device_id}')
+            else:
+                LOGGER.debug(f'No Bluetooth adapter available. Retrying in {HCI_SCAN_INTERVAL_S}s...')
+                await asyncio.sleep(HCI_SCAN_INTERVAL_S)
+        return device_id
 
     async def prepare(self):
-        self.sock = await _open_socket()
+        device_id = await self.detect_device_id()
+        loop = asyncio.get_running_loop()
+        self.scanner = BeaconScanner(
+            lambda *args: asyncio.run_coroutine_threadsafe(self.on_event(*args), loop),
+            bt_device_id=device_id,
+            device_filter=[IBeaconFilter(uuid=uuid) for uuid in parser.TILT_COLOURS.keys()],
+            scan_parameters={
+                'address_type': BluetoothAddressType.PUBLIC,
+            })
+        self.scanner.start()
+
+    async def shutdown(self, app: web.Application):
+        if self.scanner:
+            self.scanner.stop()
+            self.scanner = None
 
     async def run(self):
         await asyncio.sleep(self.interval)
-        events = await _scan_socket(self.sock)
-        message = self.parser.parse(events)
+
+        if not self.scanner_active:
+            LOGGER.error('Bluetooth scanner exited prematurely')
+            raise web.GracefulExit(1)
+
+        message = self.parser.parse(list(self.events.values()))
+        self.events.clear()
 
         curr_num_events = len(message)
         prev_num_events = self.prev_num_events

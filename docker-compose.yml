@@ -9,5 +9,6 @@ services:
     privileged: true
     network_mode: host
     command: --mqtt-protocol=mqtt --debug
+    restart: unless-stopped
     volumes:
       - ./:/app

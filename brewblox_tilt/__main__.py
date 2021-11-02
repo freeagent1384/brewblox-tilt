@@ -17,13 +17,13 @@ def create_parser(default_name='tilt'):
                         type=float,
                         default=2)
     parser.add_argument('--inactive-scan-interval',
-                        help='Interval (in seconds) between Bluetooth scans while searching for devices. [%(default)s]',
+                        help='Interval (in seconds) between broadcasts while searching for devices. [%(default)s]',
                         type=float,
                         default=5)
     parser.add_argument('--active-scan-interval',
-                        help='Interval (in seconds) between Bluetooth scans when devices are active. [%(default)s]',
+                        help='Interval (in seconds) between broadcasts when devices are active. [%(default)s]',
                         type=float,
-                        default=20)
+                        default=10)
     parser.add_argument('--simulate',
                         help='Start in simulation mode. '
                         'This will not attempt to read Bluetooth devices, but will publish random values.'
