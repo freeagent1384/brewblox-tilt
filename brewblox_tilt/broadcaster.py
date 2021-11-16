@@ -29,12 +29,13 @@ class Broadcaster(repeater.RepeaterFeature):
         self.active_scan_interval = max(config['active_scan_interval'], 0)
         self.state_topic = config['state_topic'] + f'/{self.name}'
         self.history_topic = config['history_topic'] + f'/{self.name}'
+        self.names_topic = f'brewcast/tilt/{self.name}/names'
 
         self.scanner = None
         self.parser = parser.EventDataParser(app)
         self.interval = 1
-        self.prev_num_events = 0
-        self.events: dict[str, parser.TiltEventData] = {}
+        self.prev_num_messages = 0
+        self.events: dict[str, parser.TiltEvent] = {}
 
     @property
     def scanner_active(self) -> bool:
@@ -42,12 +43,15 @@ class Broadcaster(repeater.RepeaterFeature):
 
     async def on_event(self, mac: str, rssi: int, packet: IBeaconAdvertisement, info: dict):
         LOGGER.debug(f'Recv {mac=} {packet.uuid=}, {packet.major=}, {packet.minor=}')
-        self.events[packet.uuid] = parser.TiltEventData(mac=mac,
-                                                        uuid=packet.uuid,
-                                                        major=packet.major,
-                                                        minor=packet.minor,
-                                                        txpower=packet.tx_power,
-                                                        rssi=rssi)
+        self.events[mac] = parser.TiltEvent(mac=mac,
+                                            uuid=packet.uuid,
+                                            major=packet.major,
+                                            minor=packet.minor,
+                                            txpower=packet.tx_power,
+                                            rssi=rssi)
+
+    async def on_names_change(self, topic: str, data: dict):
+        self.parser.apply_custom_names(data)
 
     async def detect_device_id(self) -> int:
         bt_dir = Path('/sys/class/bluetooth')
@@ -74,12 +78,18 @@ class Broadcaster(repeater.RepeaterFeature):
             self.scanner._mon.get_hci_version = lambda: HCIVersion.BT_CORE_SPEC_4_2
 
     async def prepare(self):
+        await mqtt.listen(self.app, self.names_topic, self.on_names_change)
+        await mqtt.subscribe(self.app, self.names_topic)
+
         device_id = await self.detect_device_id()
         loop = asyncio.get_running_loop()
         self.scanner = BeaconScanner(
             lambda *args: asyncio.run_coroutine_threadsafe(self.on_event(*args), loop),
             bt_device_id=device_id,
-            device_filter=[IBeaconFilter(uuid=uuid) for uuid in parser.TILT_COLOURS.keys()],
+            device_filter=[
+                IBeaconFilter(uuid=uuid)
+                for uuid in parser.TILT_COLORS.keys()
+            ],
             scan_parameters={
                 'address_type': BluetoothAddressType.PUBLIC,
             })
@@ -87,6 +97,8 @@ class Broadcaster(repeater.RepeaterFeature):
         self.scanner.start()
 
     async def shutdown(self, app: web.Application):
+        await mqtt.unsubscribe(app, self.names_topic)
+        await mqtt.unlisten(app, self.names_topic, self.on_names_change)
         if self.scanner:
             self.scanner.stop()
             self.scanner = None
@@ -98,47 +110,52 @@ class Broadcaster(repeater.RepeaterFeature):
             LOGGER.error('Bluetooth scanner exited prematurely')
             raise web.GracefulExit(1)
 
-        message = self.parser.parse(list(self.events.values()))
+        messages = self.parser.parse(list(self.events.values()))
         self.events.clear()
 
-        curr_num_events = len(message)
-        prev_num_events = self.prev_num_events
-        self.prev_num_events = curr_num_events
+        curr_num_messages = len(messages)
+        prev_num_messages = self.prev_num_messages
+        self.prev_num_messages = curr_num_messages
 
         # Adjust scan interval based on whether devices are detected or not
-        if curr_num_events == 0 or curr_num_events < prev_num_events:
+        if curr_num_messages == 0 or curr_num_messages < prev_num_messages:
             self.interval = self.inactive_scan_interval
         else:
             self.interval = self.active_scan_interval
 
-        if not message:
+        if not messages:
             return
 
-        LOGGER.debug(message)
+        LOGGER.debug(messages)
 
         # Publish history
-        # Colours can share an event
+        # Devices can share an event
         await mqtt.publish(self.app,
                            self.history_topic,
                            {
                                'key': self.name,
-                               'data': message,
+                               'data': {
+                                   msg.name: msg.data
+                                   for msg in messages
+                               },
                            },
                            err=False)
 
         # Publish state
-        # Publish individual colours separately
-        # This lets us retain last published values for all colours
+        # Publish individual devices separately
+        # This lets us retain last published value if a device stops publishing
         timestamp = time_ms()
-        for (colour, submessage) in message.items():
+        for msg in messages:
             await mqtt.publish(self.app,
-                               f'{self.state_topic}/{colour}',
+                               f'{self.state_topic}/{msg.color}/{msg.mac}',
                                {
                                    'key': self.name,
                                    'type': 'Tilt.state',
-                                   'colour': colour,
                                    'timestamp': timestamp,
-                                   'data': submessage,
+                                   'color': msg.color,
+                                   'mac': msg.mac,
+                                   'name': msg.name,
+                                   'data': msg.data,
                                },
                                err=False,
                                retain=True)

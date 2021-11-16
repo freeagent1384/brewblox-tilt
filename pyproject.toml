@@ -13,6 +13,7 @@ numpy = "^1.18.2"
 Pint = "^0.17"
 PyBluez = "0.22"
 beacontools = "^2.1.0"
+"ruamel.yaml" = "^0.17.17"
 
 [tool.poetry.dev-dependencies]
 pytest-flake8 = "^1.0.7"
