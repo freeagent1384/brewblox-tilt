@@ -1,7 +1,7 @@
 import csv
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 from brewblox_service import brewblox_logger
@@ -51,15 +51,14 @@ def sg_to_plato(sg: Optional[float]) -> Optional[float]:
 
 
 class Calibrator():
-    def __init__(self, file: str) -> None:
+    def __init__(self, file: Union[Path, str]) -> None:
         self.cal_tables = {}
         self.cal_polys = {}
         self.load_file(file)
 
-    def load_file(self, file: str):
+    def load_file(self, file: Union[Path, str]):
         path = Path(file)
-        if not path.is_file():
-            path.touch()
+        path.touch()
 
         # Load calibration CSV
         with open(path, newline='') as f:
@@ -145,11 +144,11 @@ class EventDataParser():
         else:
             sg = sg / 1000
 
-        # Garbled bluetooth packets may result in wildly inaccurate readings
-        # We want to discard SG values that are objectively impossible
+        # The Tilt sometimes broadcasts SG values in the millions
+        # Prevent data pollution by discarding values that are physically impossible
         if sg < self.lower_bound or sg > self.upper_bound:
-            LOGGER.warn(f'Discarding Tilt event for {color}/{event.mac}. ' +
-                        f'SG={sg} bounds=[{self.lower_bound}, {self.upper_bound}]')
+            LOGGER.warning(f'Discarding Tilt event for {color}/{event.mac}. ' +
+                           f'SG={sg} bounds=[{self.lower_bound}, {self.upper_bound}]')
             return None
 
         return {

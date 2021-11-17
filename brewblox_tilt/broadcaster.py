@@ -68,12 +68,12 @@ class Broadcaster(repeater.RepeaterFeature):
         return device_id
 
     def apply_pi4_hack(self):
-        # https://github.com/citruz/beacontools/issues/65
         model_file = Path('/sys/firmware/devicetree/base/model')
         if not model_file.exists():
             return
         content = model_file.read_text()
         if 'Pi 4' in content:
+            # https://github.com/citruz/beacontools/issues/65
             LOGGER.info('Pi 4 detected. Applying Bluetooth version hack.')
             self.scanner._mon.get_hci_version = lambda: HCIVersion.BT_CORE_SPEC_4_2
 

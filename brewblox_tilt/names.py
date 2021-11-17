@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from typing import Union
 
 from brewblox_service import brewblox_logger
 from ruamel.yaml import YAML
@@ -10,17 +11,19 @@ LOGGER = brewblox_logger(__name__)
 
 
 class DeviceNameRegistry():
-    def __init__(self, path: Path) -> None:
-        self.path = Path(path)
+    def __init__(self, file: Union[Path, str]) -> None:
+        self.path = Path(file)
         self.yaml = YAML()
-        if self.path.is_file():
-            self.devices = self.yaml.load(self.path) or {}
-            self.devices.setdefault('names', {})
-            self.changed = False
-        else:
-            self.path.touch()
-            self.devices = {'names': {}}
+        self.changed = False
+        self.devices = {}
+
+        self.path.touch()
+        self.devices = self.yaml.load(self.path) or {}
+
+        if 'names' not in self.devices:
+            self.devices['names'] = {}
             self.changed = True
+
         LOGGER.info(f'Device names loaded from `{self.path}`: '
                     + str(dict(self.devices['names'])))
 
@@ -42,7 +45,7 @@ class DeviceNameRegistry():
 
         # Escape hatch for bugs
         # If we have >1000 entries for a given color, something went wrong
-        raise RuntimeError('Name increment attempts exhausted')
+        raise RuntimeError('Name increment attempts exhausted')  # pragma: no cover
 
     def lookup(self, mac: str, color: str) -> str:
         if not re.match(const.NORMALIZED_MAC_PATTERN, mac):
@@ -55,19 +58,22 @@ class DeviceNameRegistry():
             name = self._assign(color)
             self.names[mac] = name
             self.changed = True
-            LOGGER.info(f'New Tilt detected: {mac}={name}')
+            LOGGER.info(f'New Tilt added: {mac}={name}')
             return name
 
     def apply_custom_names(self, names: dict[str, str]):
         for mac, name in names.items():
             name = str(name)
             if not re.match(const.NORMALIZED_MAC_PATTERN, mac):
-                raise ValueError(f'{mac} is not a normalized device MAC address.')
-            if not re.match(const.DEVICE_NAME_PATTERN, name):
-                raise ValueError(f'{name} is not a valid device name.')
-            LOGGER.info(f'Device name set: {mac}={name}')
-            self.names[mac] = name
-            self.changed = True
+                LOGGER.error(f'Failed to set {mac}={name}: {mac} is not a normalized device MAC address.')
+            elif not re.match(const.DEVICE_NAME_PATTERN, name):
+                LOGGER.error(f'Failed to set {mac}={name}: {name} is not a valid device name.')
+            elif name in self.names.values():
+                LOGGER.error(f'Failed to set {mac}={name}: {name} is already in use.')
+            else:
+                LOGGER.info(f'Device name set: {mac}={name}')
+                self.names[mac] = name
+                self.changed = True
 
     def commit(self):
         if self.changed:
