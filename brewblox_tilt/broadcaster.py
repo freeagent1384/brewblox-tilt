@@ -8,7 +8,7 @@ from beacontools import (BeaconScanner, BluetoothAddressType,
 from beacontools.scanner import HCIVersion
 from brewblox_service import brewblox_logger, features, mqtt, repeater
 
-from brewblox_tilt import parser
+from brewblox_tilt import const, parser
 
 LOGGER = brewblox_logger(__name__)
 
@@ -88,7 +88,7 @@ class Broadcaster(repeater.RepeaterFeature):
             bt_device_id=device_id,
             device_filter=[
                 IBeaconFilter(uuid=uuid)
-                for uuid in parser.TILT_COLORS.keys()
+                for uuid in const.TILT_UUID_COLORS.keys()
             ],
             scan_parameters={
                 'address_type': BluetoothAddressType.PUBLIC,
