@@ -37,8 +37,7 @@ mkdir ~/brewblox/tilt
     privileged: true
     network_mode: host
     volumes: ['./tilt:/share']
-    labels:
-      - traefik.enable=false
+    labels: ['traefik.enable=false']
 ```
 
 Finally, you'll have to bring up the new service using
@@ -63,9 +62,7 @@ services:
     command: --mqtt-host=<brewblox_hostname/IP>
 ```
 
-If you host brewblox on a different port (e.g. if you run brewblox on a NAS), you'll also want to add `--mqtt-port=<port>` to the command with the relevant port (https).
-
-Create the directory for the tilt calibration
+Create the directory for the tilt files
 ```bash
 mkdir tilt
 ```
@@ -75,40 +72,54 @@ Start the service with the following command
 docker-compose up -d
 ```
 
+### Configure ports
+
+By default, the Tilt services uses MQTT over WSS (HTTPS websockets).
+
+If you are using a non-default HTTPS port (e.g. if you run brewblox on a NAS), you'll also want to add `--mqtt-port=<port>` to the command.
+
 ### Add to your graphs
 
 Once the Tilt service receives data from your Tilt(s), it should be available as graph metrics in Brewblox.
+
+## Device names
+
+Whenever a Tilt is detected, it is assigned a unique name.
+The first Tilt of a given color will be named after the color.
+If you have more than one Tilt of a single color, the name will be incremented.
+For example, if you have three red Tilt devices, the names will be:
+- Tilt
+- Tilt-2
+- Tilt-3
+
+Device names can be edited in the Brewblox UI, or in the `~/brewblox/tilt/devices.yml` file.
+If you edit the file, you must restart the service for the changes to take effect.
 
 ### Calibration
 
 Calibration is optional. While the Tilt provides a good indication of fermentation progress without calibration, it's values can be less accurate than a traditional hydrometer. With calibration its accuracy is approximately that of a traditional hydrometer. If you wish to use your Tilt for anything beyond simple tracking of fermentation progress (e.g. stepping temperatures at a given SG value) it is recommended you calibrate your Tilt.
 
-To calibrate your Tilt, you first need to create a folder for the calibration files to be stored in. The recommended folder is `./tilt` in the Brewblox directory. You can use other directories but you should change the volume parameter for the Tilt service in your docker compose file accordingly. You can create the `tilt` directory by running the following command in the Brewblox directory:-
-
-```bash
-mkdir tilt
-```
-
-**NOTE:** It is recommended you create the `tilt` folder before launching the Tilt service for the first time. Failure to do so will result in the docker service creating the folder as root. If this happens, use `chown` to change the user and group ownership of the `tilt` folder to match the rest of the Brewblox directory.
-
-If you wish to calibrate your Specific Gravity readings, create a file called `SGCal.csv` in the `tilt` directory with lines of the form:-
+If you wish to calibrate your Specific Gravity readings, create a file called `SGCal.csv` in the `~/brewblox/tilt` directory with lines of the form:
 
 ```
-<colour>, <uncalibrated_value>, <calibrated_value>
+<device name>, <uncalibrated_value>, <calibrated_value>
 ```
 
-The uncalibrated values are the raw values from the Tilt. The calibrated values are those from a known good hydrometer or calculated when creating your calibration solution. Calibration solutions can be made by adding sugar/DME to water a little at a time to increase the SG of the solution. You can take readings using a hydrometer and the Tilt app as you go. You can include calibration values for multiple colours of Tilt in the calibration file. A typical calibration file would look something like this:-
+The device name is the name as described above. If a custom device name containing spaces is used, the name must be quoted.
+The name is case-sensitive.
+
+The uncalibrated values are the raw values from the Tilt. The calibrated values are those from a known good hydrometer or calculated when creating your calibration solution. Calibration solutions can be made by adding sugar/DME to water a little at a time to increase the SG of the solution. You can take readings using a hydrometer and the Tilt app as you go. You can include calibration values for multiple colours of Tilt in the calibration file. A typical calibration file would look something like this:
 
 ```
-black, 1.000, 1.001
-black, 1.001, 1.002
-black, 1.002, 1.003
-black, 1.003, 1.004
-red, 1.000, 1.010
-red, 1.001, 1.011
-red, 1.002, 1.012
-red, 1.003, 1.013
-red, 1.004, 1.014
+Black, 1.000, 1.001
+Black, 1.001, 1.002
+Black, 1.002, 1.003
+Black, 1.003, 1.004
+Red, 1.000, 1.010
+Red, 1.001, 1.011
+Red, 1.002, 1.012
+Red, 1.003, 1.013
+Red, 1.004, 1.014
 ```
 
 You will need multiple calibration points. We recommend at least 6 distributed evenly across your typical gravity range for each Tilt. For example, if you usually brew with a starting gravity of 1.050, you may choose to calibrate at the values 1.000, 1.010, 1.020, 1.030, 1.040, 1.050, and 1.060. The more calibration points you have, the more accurate the calibrated values the service creates will be. Strange calibrated values from the service are an indication you have used too few or poorly distributed calibration values.
@@ -116,12 +127,12 @@ You will need multiple calibration points. We recommend at least 6 distributed e
 Calibration values for temperature are placed in a file called `tempCal.csv` in the `tilt` directory and have the same structure. Temperature values in the calibration file MUST be in Fahrenheit. The tempCal file can also contain calibration values for multiple Tilts. Again, it should contain at least 6 points distributed evenly across your typical range. A typical tempCal file would look like this:-
 
 ```
-black,39,40
-black,46,48
-black,54,55
-black,60,62
-black,68,70
-black,75,76
+Black,39,40
+Black,46,48
+Black,54,55
+Black,60,62
+Black,68,70
+Black,75,76
 ```
 
 Calibrated values will be logged in Brewblox separately to uncalibrated values. If you don't provide calibration values for a given colour of Tilt, only uncalibrated values will be logged. You don't need to calibrate both temperature and SG. If you only want to provide calibration values for SG, that works fine. Calibrated temp values would not be generated in this case but calibrate SG values would.
@@ -130,7 +141,7 @@ It is also recommended that you re-calibrate SG whenever you change your battery
 
 ## Limitations
 
-As the Tilt does not talk directly to the BrewPi controller, you cannot use your Tilt to control the temperature of your system. This service currently only allows you to log values from the Tilt. To control your BrewPi/Brewblox setup you will need a BrewPi temperature sensor.
+As the Tilt does not talk directly to the Spark controller, you cannot use your Tilt to control the temperature of your system. This service currently only allows you to log values from the Tilt. To control your BrewPi/Brewblox setup you will need a BrewPi temperature sensor.
 
 ## Development
 
@@ -180,7 +191,7 @@ poetry install
 
 During development, you need to have your environment activated. When it is activated, your terminal prompt is prefixed with (.venv).
 
-Visual Studio code with suggested settings does this automatically whenever you open a .py file. If you prefer using a different editor, you can do it manually by running:
+Visual Studio Code with suggested settings does this automatically whenever you open a .py file. If you prefer using a different editor, you can do it manually by running:
 ```bash
 poetry shell
 ```
@@ -201,8 +212,10 @@ bash docker/before_build.sh
 docker build --tag brewblox/brewblox-tilt:local docker
 ```
 
-You can then run this container using the following:
+A `docker-compose.yml` file that uses `brewblox/brewblox-tilt:local` is present in the repository root.
+
+To start it, run:
 
 ```bash
-docker run -it --rm --net=host --privileged -v ~/brewblox/tilt:/share brewblox/brewblox-tilt:local
+docker-compose up -d
 ```
