@@ -8,6 +8,7 @@ TEMP_CAL_FILE_PATH = Path(CONFIG_DIR, 'tempCal.csv')
 
 NORMALIZED_MAC_PATTERN = re.compile(r'^[A-F0-9]{12}$')
 DEVICE_NAME_PATTERN = re.compile(r'^[a-zA-Z0-9 _\-\(\)\|]{1,100}$')
+INVALID_NAME_CHAR_PATTERN = re.compile(r'[^a-zA-Z0-9 _\-\(\)\|]')
 
 TILT_UUID_COLORS = {
     'a495bb10-c5b1-4b44-b512-1370f02d74de': 'Red',

@@ -52,23 +52,23 @@ def sg_to_plato(sg: Optional[float]) -> Optional[float]:
 
 class Calibrator():
     def __init__(self, file: Union[Path, str]) -> None:
-        self.cal_tables = {}
-        self.cal_polys = {}
-        self.load_file(file)
+        self.cal_polys: dict[str, np.poly1d] = {}
+        self.keys: set[str] = set()
+        self.path = Path(file)
+        self.path.touch()
+        self.path.chmod(0o666)
 
-    def load_file(self, file: Union[Path, str]):
-        path = Path(file)
-        path.touch()
+        cal_tables = {}
 
         # Load calibration CSV
-        with open(path, newline='') as f:
+        with open(self.path, newline='') as f:
             reader = csv.reader(f, delimiter=',')
             for line in reader:
                 key = None  # MAC or name
                 uncal = None
                 cal = None
 
-                key = line[0].strip()
+                key = line[0].strip().lower()
 
                 try:
                     uncal = float(line[1].strip())
@@ -82,28 +82,29 @@ class Calibrator():
                     LOGGER.warning(f'Calibrated value `{line[2]}` not a float. Ignoring line.')
                     continue
 
-                self.cal_tables.setdefault(key, {
+                self.keys.add(key)
+                data = cal_tables.setdefault(key, {
                     'uncal': [],
                     'cal': [],
                 })
-                self.cal_tables[key]['uncal'].append(uncal)
-                self.cal_tables[key]['cal'].append(cal)
+                data['uncal'].append(uncal)
+                data['cal'].append(cal)
 
         # Use polyfit to fit a cubic polynomial curve to calibration values
         # Then create a polynomical from the values produced by polyfit
-        for key in self.cal_tables:
-            x = np.array(self.cal_tables[key]['uncal'])
-            y = np.array(self.cal_tables[key]['cal'])
+        for key, data in cal_tables.items():
+            x = np.array(data['uncal'])
+            y = np.array(data['cal'])
             z = np.polyfit(x, y, 3)
             self.cal_polys[key] = np.poly1d(z)
 
-        LOGGER.info(f'Calibration values loaded from `{path}`: {list(self.cal_polys.keys())}')
+        LOGGER.info(f'Calibration values loaded from `{self.path}`: keys={*self.cal_polys.keys(),}')
 
     def calibrated_value(self, key_candidates: list[str], value: float, ndigits=0) -> Optional[float]:
         # Use polynomials calculated above to calibrate values
         # Both MAC and device name are valid keys in calibration files
         # Check whether any of the given keys is present
-        for key in key_candidates:
+        for key in [k.lower() for k in key_candidates]:
             if key in self.cal_polys:
                 return round(self.cal_polys[key](value), ndigits)
         return None

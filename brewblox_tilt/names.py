@@ -4,6 +4,7 @@ from typing import Union
 
 from brewblox_service import brewblox_logger
 from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap
 
 from brewblox_tilt import const
 
@@ -18,36 +19,41 @@ class DeviceNameRegistry():
         self.devices = {}
 
         self.path.touch()
-        self.devices = self.yaml.load(self.path) or {}
+        self.path.chmod(0o666)
 
-        if 'names' not in self.devices:
-            self.devices['names'] = {}
-            self.changed = True
+        self.devices: CommentedMap = self.yaml.load(self.path) or CommentedMap()
+        self.devices.setdefault('names', CommentedMap())
 
-        LOGGER.info(f'Device names loaded from `{self.path}`: '
-                    + str(dict(self.devices['names'])))
+        for mac, name in list(self.names.items()):
+            if not re.match(const.DEVICE_NAME_PATTERN, name):
+                sanitized = re.sub(const.INVALID_NAME_CHAR_PATTERN, '_', name) or 'Unknown'
+                LOGGER.warning(f'Sanitizing invalid device name: {mac=} {name=}, {sanitized=}.')
+                self.names[mac] = sanitized
+                self.changed = True
+
+        LOGGER.info(f'Device names loaded from `{self.path}`: {str(dict(self.names))}')
 
     @property
     def names(self) -> dict[str, str]:
         return self.devices['names']
 
-    def _assign(self, color: str) -> str:
+    def _assign(self, base_name: str) -> str:
         used: set[str] = set(self.names.values())
-        if color not in used:
-            return color
+        if base_name not in used:
+            return base_name
 
         idx = 1
         while idx < 1000:
             idx += 1
-            name = f'{color}-{idx}'
+            name = f'{base_name}-{idx}'
             if name not in used:
                 return name
 
         # Escape hatch for bugs
-        # If we have >1000 entries for a given color, something went wrong
+        # If we have >1000 entries for a given base name, something went wrong
         raise RuntimeError('Name increment attempts exhausted')  # pragma: no cover
 
-    def lookup(self, mac: str, color: str) -> str:
+    def lookup(self, mac: str, base_name: str) -> str:
         if not re.match(const.NORMALIZED_MAC_PATTERN, mac):
             raise ValueError(f'{mac} is not a normalized device MAC address.')
 
@@ -55,7 +61,7 @@ class DeviceNameRegistry():
         if name:
             return name
         else:
-            name = self._assign(color)
+            name = self._assign(base_name)
             self.names[mac] = name
             self.changed = True
             LOGGER.info(f'New Tilt added: {mac}={name}')
@@ -68,8 +74,6 @@ class DeviceNameRegistry():
                 LOGGER.error(f'Failed to set {mac}={name}: {mac} is not a normalized device MAC address.')
             elif not re.match(const.DEVICE_NAME_PATTERN, name):
                 LOGGER.error(f'Failed to set {mac}={name}: {name} is not a valid device name.')
-            elif name in self.names.values():
-                LOGGER.error(f'Failed to set {mac}={name}: {name} is already in use.')
             else:
                 LOGGER.info(f'Device name set: {mac}={name}')
                 self.names[mac] = name

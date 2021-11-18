@@ -37,6 +37,22 @@ def test_empty():
     assert registry.names == {}
 
 
+def test_sanitize():
+    f = NamedTemporaryFile()
+    f.write(json.dumps({
+        'names': {
+            'DD7F97FC141E': '++Purple ++',
+            'EE7F97FC141E': '',
+        },
+    }).encode())
+    f.flush()
+    registry = names.DeviceNameRegistry(f.name)
+    assert registry.names == {
+        'DD7F97FC141E': '__Purple __',
+        'EE7F97FC141E': 'Unknown',
+    }
+
+
 def test_lookup(m_file):
     registry = names.DeviceNameRegistry(m_file.name)
     assert registry.lookup('DD7F97FC141E', '') == 'Purple'
@@ -70,6 +86,7 @@ def test_apply_custom_names(m_file):
     assert registry.names == {
         **default_names(),
         'AA7F97FC141E': 'Red',
+        'BB7F97FC141E': 'Red',
         'CC7F97FC141E': 'Pink',
         'DD7F97FC141E': 'Pretty Purple',
     }

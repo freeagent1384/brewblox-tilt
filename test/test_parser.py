@@ -26,7 +26,7 @@ def m_sg_file():
             'Black, 1.000, 2.001',
             'Black, 1.001, 2.002',
             'Black, 1.002, 2.003',
-            'Black, 1.003, 2.004',
+            'BLACK, 1.003, 2.004',
             'Black, 1, Many',
             'Black, Few, 2.005',
             ''
@@ -81,9 +81,9 @@ def m_files(mocker, m_sg_file, m_temp_file, m_devices_file, m_config_dir):
 
 def test_calibrator(m_sg_file):
     calibrator = parser.Calibrator(m_sg_file.name)
-    assert 'Black' in calibrator.cal_tables
-    assert 'Ferment 1 red' in calibrator.cal_tables
-    assert len(calibrator.cal_tables['Black']['cal']) == 4
+    assert 'black' in calibrator.cal_polys
+    assert 'ferment 1 red' in calibrator.cal_polys
+    assert calibrator.cal_polys['black'].order == 3
 
     cal_black_v = calibrator.calibrated_value(['Dummy', 'Black'], 1.002, 3)
     assert cal_black_v == pytest.approx(2, 0.1)
