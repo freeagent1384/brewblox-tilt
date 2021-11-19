@@ -27,7 +27,7 @@ def create_parser(default_name='tilt'):
     parser.add_argument('--simulate',
                         help='Start in simulation mode. '
                         'This will not attempt to read Bluetooth devices, but will publish random values.'
-                        'The value for this argument will be used as colour',
+                        'The value for this argument will be used as color',
                         default=None)
 
     # Assumes a default configuration of running with --net=host
