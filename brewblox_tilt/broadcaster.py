@@ -123,6 +123,18 @@ class Broadcaster(repeater.RepeaterFeature):
         else:
             self.interval = self.active_scan_interval
 
+        # Always broadcast a presence message
+        # This will make the service show up in the UI even without active Tilts
+        await mqtt.publish(self.app,
+                           self.state_topic,
+                           {
+                               'key': self.name,
+                               'type': 'Tilt.state.service',
+                               'timestamp': time_ms(),
+                           },
+                           err=False,
+                           retain=True)
+
         if not messages:
             return
 
