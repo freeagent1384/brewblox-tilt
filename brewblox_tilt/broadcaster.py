@@ -69,32 +69,28 @@ class Broadcaster(repeater.RepeaterFeature):
         return device_id
 
     def override_hci_version(self):
-        hci_version_override = None
+        try:
+            hci_version_override = HCIVersion(int(getenv('HCI_VERSION')))
+        except (TypeError, ValueError):
+            hci_version_override = None
 
         def wrapped_get_hci_version():
-            hci_version = hci_version_override
-            if hci_version is None:
-                hci_version = Monitor.get_hci_version(self.scanner._mon)
-            LOGGER.info(f'{hci_version.name=}')
+            # https://github.com/citruz/beacontools/issues/65
+            max_hci_version = HCIVersion.BT_CORE_SPEC_4_2
+            adapter_hci_version = Monitor.get_hci_version(self.scanner._mon)
+
+            if hci_version_override is not None:
+                hci_version = hci_version_override
+            else:
+                hci_version = min(adapter_hci_version, max_hci_version)
+
+            LOGGER.info(f'HCI Version native = {repr(adapter_hci_version)}')
+            LOGGER.info(f'HCI Version env = {repr(hci_version_override)}')
+            LOGGER.info(f'HCI Version max = {repr(max_hci_version)}')
+            LOGGER.info(f'HCI Version used = {repr(hci_version)}')
             return hci_version
 
         self.scanner._mon.get_hci_version = wrapped_get_hci_version
-
-        try:
-            hci_version_override = HCIVersion(int(getenv('HCI_VERSION')))
-            LOGGER.info(f'Overriding HCI version with env value: {hci_version_override.name}')
-            return
-        except (TypeError, ValueError):
-            pass
-
-        try:
-            if 'Pi 4' in Path('/sys/firmware/devicetree/base/model').read_text():
-                # https://github.com/citruz/beacontools/issues/65
-                hci_version_override = HCIVersion.BT_CORE_SPEC_4_2
-                LOGGER.info(f'Overriding HCI version with Pi 4 hack: {hci_version_override.name}')
-                return
-        except FileNotFoundError:
-            pass
 
     async def prepare(self):
         await mqtt.listen(self.app, self.names_topic, self.on_names_change)
