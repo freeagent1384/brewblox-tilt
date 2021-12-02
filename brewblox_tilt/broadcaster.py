@@ -1,11 +1,12 @@
 import asyncio
 import time
+from os import getenv
 from pathlib import Path
 
 from aiohttp import web
 from beacontools import (BeaconScanner, BluetoothAddressType,
                          IBeaconAdvertisement, IBeaconFilter)
-from beacontools.scanner import HCIVersion
+from beacontools.scanner import HCIVersion, Monitor
 from brewblox_service import brewblox_logger, features, mqtt, repeater
 
 from brewblox_tilt import const, parser
@@ -67,15 +68,33 @@ class Broadcaster(repeater.RepeaterFeature):
                 await asyncio.sleep(HCI_SCAN_INTERVAL_S)
         return device_id
 
-    def apply_pi4_hack(self):
-        model_file = Path('/sys/firmware/devicetree/base/model')
-        if not model_file.exists():
+    def override_hci_version(self):
+        hci_version_override = None
+
+        def wrapped_get_hci_version():
+            hci_version = hci_version_override
+            if hci_version is None:
+                hci_version = Monitor.get_hci_version(self.scanner._mon)
+            LOGGER.info(f'{hci_version.name=}')
+            return hci_version
+
+        self.scanner._mon.get_hci_version = wrapped_get_hci_version
+
+        try:
+            hci_version_override = HCIVersion(int(getenv('HCI_VERSION')))
+            LOGGER.info(f'Overriding HCI version with env value: {hci_version_override.name}')
             return
-        content = model_file.read_text()
-        if 'Pi 4' in content:
-            # https://github.com/citruz/beacontools/issues/65
-            LOGGER.info('Pi 4 detected. Applying Bluetooth version hack.')
-            self.scanner._mon.get_hci_version = lambda: HCIVersion.BT_CORE_SPEC_4_2
+        except (TypeError, ValueError):
+            pass
+
+        try:
+            if 'Pi 4' in Path('/sys/firmware/devicetree/base/model').read_text():
+                # https://github.com/citruz/beacontools/issues/65
+                hci_version_override = HCIVersion.BT_CORE_SPEC_4_2
+                LOGGER.info(f'Overriding HCI version with Pi 4 hack: {hci_version_override.name}')
+                return
+        except FileNotFoundError:
+            pass
 
     async def prepare(self):
         await mqtt.listen(self.app, self.names_topic, self.on_names_change)
@@ -93,7 +112,7 @@ class Broadcaster(repeater.RepeaterFeature):
             scan_parameters={
                 'address_type': BluetoothAddressType.PUBLIC,
             })
-        self.apply_pi4_hack()
+        self.override_hci_version()
         self.scanner.start()
 
     async def shutdown(self, app: web.Application):
