@@ -170,11 +170,14 @@ As the Tilt does not talk directly to the Spark controller, you cannot use your 
 
 To get started:
 
+
+## Install
+
 Install [Pyenv](https://github.com/pyenv/pyenv):
 ```
 sudo apt-get update -y && sudo apt-get install -y make build-essential libssl-dev zlib1g-dev libbz2-dev \
 libreadline-dev libsqlite3-dev wget curl llvm libncurses5-dev libncursesw5-dev \
-xz-utils tk-dev libffi-dev liblzma-dev python-openssl git python3-venv python-is-python3
+xz-utils tk-dev libffi-dev liblzma-dev python-openssl git python3-venv
 
 curl https://pyenv.run | bash
 ```
@@ -186,36 +189,33 @@ To apply the changes to ~/.bashrc (or ~/.zshrc), run:
 exec $SHELL --login
 ```
 
-Install Python 3.9
-```bash
-pyenv install 3.9.7
+Install Python 3.9:
+```
+pyenv install 3.9.9
 ```
 
 Install [Poetry](https://python-poetry.org/)
 ```
-curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
+curl -sSL https://install.python-poetry.org | python3 -
 
 exec $SHELL --login
 ```
 
-Install Bluetooth dependencies
-```bash
-sudo apt install -y \
-    libbluetooth-dev
-```
-
 Configure and install the environment used for this project.
 
-**Run in the root of the cloned brewblox-tilt directory**
-```bash
-poetry run pip install --upgrade pip
+**Run in the brewblox-tilt root**
+```
+pyenv shell 3.9.9
+poetry env use 3.9.9
 poetry install
 ```
 
-During development, you need to have your environment activated. When it is activated, your terminal prompt is prefixed with (.venv).
+During development, you need to have your environment activated.
+When it is activated, your terminal prompt is prefixed with `(.venv)`.
 
-Visual Studio Code with suggested settings does this automatically whenever you open a .py file. If you prefer using a different editor, you can do it manually by running:
-```bash
+Visual Studio code with suggested settings does this automatically whenever you open a .py file.
+If you prefer using a different editor, you can do it manually by running:
+```
 poetry shell
 ```
 
