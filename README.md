@@ -170,6 +170,12 @@ As the Tilt does not talk directly to the Spark controller, you cannot use your 
 
 To install pyenv + poetry, see the instructions at https://github.com/BrewBlox/brewblox-boilerplate#readme
 
+You will also need Bluetooth support on the host to build the Python packages:
+
+```bash
+sudo apt update && sudo apt install -y libbluetooth-dev
+```
+
 To build a local Docker image:
 
 ```bash
