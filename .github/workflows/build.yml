@@ -41,8 +41,8 @@ jobs:
         run: >
           sudo apt update &&
           sudo apt install -y --no-install-recommends
-            libbluetooth-dev
-            libatlas-base-dev
+          libbluetooth-dev
+          libatlas-base-dev
 
       - name: Install Python dependencies
         run: |
