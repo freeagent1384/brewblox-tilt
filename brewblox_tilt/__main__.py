@@ -1,10 +1,11 @@
 from brewblox_service import mqtt, scheduler, service
 
 from brewblox_tilt import broadcaster, broadcaster_sim
+from brewblox_tilt.models import ServiceConfig
 
 
-def create_parser(default_name='tilt'):
-    parser = service.create_parser(default_name=default_name)
+def create_parser():
+    parser = service.create_parser('tilt')
 
     parser.add_argument('--lower-bound',
                         help='Lower bound of acceptable SG values. '
@@ -37,20 +38,21 @@ def create_parser(default_name='tilt'):
 
 
 def main():
-    app = service.create_app(parser=create_parser())
-    config = app['config']
+    parser = create_parser()
+    config = service.create_config(parser, model=ServiceConfig)
+    app = service.create_app(config)
 
-    scheduler.setup(app)
-    mqtt.setup(app)
+    async def setup():
+        scheduler.setup(app)
+        mqtt.setup(app)
 
-    if config['simulate'] is not None:
-        broadcaster_sim.setup(app)
-    else:
-        broadcaster.setup(app)
+        if config.simulate is not None:
+            broadcaster_sim.setup(app)
+        else:
+            broadcaster.setup(app)
 
     # We have no meaningful REST API, so we set listen_http to False
-    service.furnish(app)
-    service.run(app, listen_http=False)
+    service.run_app(app, setup(), listen_http=False)
 
 
 if __name__ == '__main__':

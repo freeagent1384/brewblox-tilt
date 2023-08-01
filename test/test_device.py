@@ -6,9 +6,9 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from brewblox_tilt import config
+from brewblox_tilt import device
 
-TESTED = config.__name__
+TESTED = device.__name__
 
 
 def default_names():
@@ -27,13 +27,13 @@ def m_file():
 
 
 def test_load(m_file):
-    registry = config.DeviceConfig(m_file.name)
+    registry = device.DeviceConfig(m_file.name)
     assert registry.names == default_names()
 
 
 def test_empty():
     f = NamedTemporaryFile()
-    registry = config.DeviceConfig(f.name)
+    registry = device.DeviceConfig(f.name)
     assert registry.names == {}
 
 
@@ -46,7 +46,7 @@ def test_sanitize():
         },
     }).encode())
     f.flush()
-    registry = config.DeviceConfig(f.name)
+    registry = device.DeviceConfig(f.name)
     assert registry.names == {
         'DD7F97FC141E': '__Purple __',
         'EE7F97FC141E': 'Unknown',
@@ -54,7 +54,7 @@ def test_sanitize():
 
 
 def test_lookup(m_file):
-    registry = config.DeviceConfig(m_file.name)
+    registry = device.DeviceConfig(m_file.name)
     assert registry.lookup('DD7F97FC141E', '') == 'Purple'
     assert registry.lookup('AA7F97FC141E', 'Red') == 'Red'
     assert registry.lookup('AB7F97FC141E', 'Red') == 'Red-2'
@@ -74,7 +74,7 @@ def test_lookup(m_file):
 
 
 def test_apply_custom_names(m_file):
-    registry = config.DeviceConfig(m_file.name)
+    registry = device.DeviceConfig(m_file.name)
     registry.apply_custom_names({
         'AA7F97FC141E': 'Red',
         'BB7F97FC141E': 'Red',  # Duplicate name
@@ -94,12 +94,12 @@ def test_apply_custom_names(m_file):
 
 
 def test_commit(m_file, mocker):
-    registry = config.DeviceConfig(m_file.name)
+    registry = device.DeviceConfig(m_file.name)
     mocker.patch.object(registry, 'yaml', wraps=registry.yaml)
     registry.lookup('AA7F97FC141E', 'Red')
 
     # Changes are not yet committed to file
-    registry2 = config.DeviceConfig(m_file.name)
+    registry2 = device.DeviceConfig(m_file.name)
     assert registry2.names == default_names()
 
     registry.commit()
@@ -107,7 +107,7 @@ def test_commit(m_file, mocker):
     assert registry.yaml.dump.call_count == 1
 
     # Changes are committed and present in file
-    registry3 = config.DeviceConfig(m_file.name)
+    registry3 = device.DeviceConfig(m_file.name)
     assert registry3.names == {
         **default_names(),
         'AA7F97FC141E': 'Red',

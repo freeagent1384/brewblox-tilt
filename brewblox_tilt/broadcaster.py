@@ -11,6 +11,7 @@ from beacontools.scanner import HCIVersion, Monitor
 from brewblox_service import brewblox_logger, features, mqtt, repeater
 
 from brewblox_tilt import const, parser
+from brewblox_tilt.models import ServiceConfig
 
 LOGGER = brewblox_logger(__name__)
 
@@ -25,12 +26,12 @@ class Broadcaster(repeater.RepeaterFeature):
     def __init__(self, app: web.Application):
         super().__init__(app)
 
-        config = app['config']
-        self.name = config['name']
-        self.inactive_scan_interval = max(config['inactive_scan_interval'], 0)
-        self.active_scan_interval = max(config['active_scan_interval'], 0)
-        self.state_topic = config['state_topic'] + f'/{self.name}'
-        self.history_topic = config['history_topic'] + f'/{self.name}'
+        config: ServiceConfig = app['config']
+        self.name = config.name
+        self.inactive_scan_interval = max(config.inactive_scan_interval, 0)
+        self.active_scan_interval = max(config.active_scan_interval, 0)
+        self.state_topic = f'{config.state_topic}/{self.name}'
+        self.history_topic = f'{config.history_topic}/{self.name}'
         self.names_topic = f'brewcast/tilt/{self.name}/names'
 
         self.scanner = None
