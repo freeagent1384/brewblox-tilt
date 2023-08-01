@@ -1,22 +1,18 @@
-FROM python:3.9 as base
+FROM python:3.9-bullseye as base
 
 ENV PIP_EXTRA_INDEX_URL=https://www.piwheels.org/simple
 ENV PIP_FIND_LINKS=/wheeley
 
 COPY ./dist /app/dist
-COPY ./requirements.txt /app/requirements.txt
 
 RUN set -ex \
     && mkdir /wheeley \
     && pip3 install --upgrade pip wheel \
-    && pip3 wheel --wheel-dir=/wheeley -r /app/requirements.txt \
-    && pip3 wheel --wheel-dir=/wheeley /app/dist/*
+    && pip3 wheel --wheel-dir=/wheeley -r /app/dist/requirements.txt \
+    && pip3 wheel --wheel-dir=/wheeley /app/dist/*.tar.gz
 
-FROM python:3.9-slim
+FROM python:3.9-slim-bullseye
 WORKDIR /app
-
-ARG service_info=UNKNOWN
-ENV SERVICE_INFO=${service_info}
 
 COPY --from=base /wheeley /wheeley
 
