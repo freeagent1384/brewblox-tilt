@@ -7,6 +7,7 @@ from aiohttp import web
 from brewblox_service import brewblox_logger, features, mqtt, repeater
 
 from brewblox_tilt import const, parser
+from brewblox_tilt.models import ServiceConfig
 
 LOGGER = brewblox_logger(__name__)
 
@@ -48,19 +49,19 @@ class BroadcasterSim(repeater.RepeaterFeature):
     def __init__(self, app: web.Application):
         super().__init__(app)
 
-        config = app['config']
-        self.name = config['name']
-        self.active_scan_interval = max(config['active_scan_interval'], 0)
-        self.state_topic = config['state_topic'] + f'/{self.name}'
-        self.history_topic = config['history_topic'] + f'/{self.name}'
+        config: ServiceConfig = app['config']
+        self.name = config.name
+        self.active_scan_interval = max(config.active_scan_interval, 0)
+        self.state_topic = f'{config.state_topic}/{self.name}'
+        self.history_topic = f'{config.history_topic}/{self.name}'
         self.names_topic = f'brewcast/tilt/{self.name}/names'
 
         self.interval = 1
         self.parser = parser.EventDataParser(app)
         self.simulations = [Simulation(simulated)
-                            for simulated in config['simulate']]
+                            for simulated in config.simulate]
 
-        LOGGER.info(f'Started simulation for {config["simulate"]}')
+        LOGGER.info(f'Started simulation for {config.simulate}')
 
     async def on_names_change(self, topic: str, payload: str):
         self.parser.apply_custom_names(json.loads(payload))

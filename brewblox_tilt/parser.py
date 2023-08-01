@@ -5,13 +5,14 @@ from typing import Optional, Union
 
 import numpy as np
 from brewblox_service import brewblox_logger
-from pint import UnitRegistry
+from pint import Quantity, UnitRegistry
 
-from brewblox_tilt import config, const
+from brewblox_tilt import const, device
+from brewblox_tilt.models import ServiceConfig
 
 LOGGER = brewblox_logger(__name__)
 ureg = UnitRegistry()
-Q_ = ureg.Quantity
+Q_: Quantity = ureg.Quantity
 
 
 @dataclass
@@ -120,11 +121,12 @@ class Calibrator():
 
 class EventDataParser():
     def __init__(self, app):
-        self.lower_bound = app['config']['lower_bound']
-        self.upper_bound = app['config']['upper_bound']
+        config: ServiceConfig = app['config']
+        self.lower_bound = config.lower_bound
+        self.upper_bound = config.upper_bound
 
         const.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        self.config = config.DeviceConfig(const.DEVICES_FILE_PATH)
+        self.devconfig = device.DeviceConfig(const.DEVICES_FILE_PATH)
         self.session_macs: set[str] = set()
         self.sg_cal = Calibrator(const.SG_CAL_FILE_PATH)
         self.temp_cal = Calibrator(const.TEMP_CAL_FILE_PATH)
@@ -180,7 +182,7 @@ class EventDataParser():
 
         color = decoded['color']
         mac = event.mac.strip().replace(':', '').upper()
-        name = self.config.lookup(mac, color)
+        name = self.devconfig.lookup(mac, color)
 
         if mac not in self.session_macs:
             self.session_macs.add(mac)
@@ -231,7 +233,7 @@ class EventDataParser():
 
         sync: list[TiltTemperatureSync] = []
 
-        for src in self.config.sync:
+        for src in self.devconfig.sync:
             sync_tilt = src.get('tilt')
             sync_type = src.get('type')
             sync_service = src.get('service')
@@ -261,9 +263,9 @@ class EventDataParser():
         Invalid events are excluded.
         """
         messages = [self._parse_event(evt) for evt in events]
-        self.config.commit()
+        self.devconfig.commit()
         return [msg for msg in messages if msg is not None]
 
     def apply_custom_names(self, names: dict[str, str]) -> None:
-        self.config.apply_custom_names(names)
-        self.config.commit()
+        self.devconfig.apply_custom_names(names)
+        self.devconfig.commit()

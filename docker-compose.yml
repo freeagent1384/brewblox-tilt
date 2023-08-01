@@ -1,4 +1,4 @@
-version: '3.7'
+version: "3.7"
 services:
   eventbus:
     image: brewblox/mosquitto:develop
@@ -6,7 +6,7 @@ services:
       - "1883:1883"
   tilt:
     # Manually build the "local" image before use
-    image: brewblox/brewblox-tilt:local
+    image: ghcr.io/brewblox/brewblox-tilt:local
     privileged: true
     network_mode: host
     command: --mqtt-protocol=mqtt --debug --simulate orange red

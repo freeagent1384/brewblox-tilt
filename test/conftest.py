@@ -7,9 +7,10 @@ Any fixtures declared here are available to all test functions in this directory
 import logging
 
 import pytest
+from aiohttp import test_utils
 from brewblox_service import brewblox_logger, features, service
 
-from brewblox_tilt.__main__ import create_parser
+from brewblox_tilt.models import ServiceConfig
 
 LOGGER = brewblox_logger(__name__)
 
@@ -23,43 +24,53 @@ def log_enabled():
 
 
 @pytest.fixture
-def app_config() -> dict:
-    return {
-        'name': 'test_app',
-        'host': 'localhost',
-        'port': 1234,
-        'debug': False,
-        'lower_bound': 0.5,
-        'upper_bound': 2,
-        'inactive_scan_interval': 5,
-        'active_scan_interval': 20,
-        'simulate': None,
-    }
+def app_config() -> ServiceConfig:
+    return ServiceConfig(
+        # From brewblox_service
+        name='test_app',
+        host='localhost',
+        port=1234,
+        debug=True,
+        mqtt_protocol='mqtt',
+        mqtt_host='eventbus',
+        mqtt_port=1883,
+        mqtt_path='/eventbus',
+        history_topic='brewcast/history',
+        state_topic='brewcast/state',
+
+        # From brewblox_tilt
+        lower_bound=0.5,
+        upper_bound=2,
+        active_scan_interval=20,
+        inactive_scan_interval=5,
+        simulate=None,
+    )
 
 
 @pytest.fixture
-def sys_args(app_config) -> list:
+def sys_args(app_config: ServiceConfig) -> list:
     return [str(v) for v in [
         'app_name',
-        '--name', app_config['name'],
-        '--host', app_config['host'],
-        '--port', app_config['port'],
-        '--lower-bound', app_config['lower_bound'],
-        '--upper-bound', app_config['upper_bound'],
-        '--inactive-scan-interval', app_config['inactive_scan_interval'],
-        '--active-scan-interval', app_config['active_scan_interval'],
+        '--lower-bound', app_config.lower_bound,
+        '--upper-bound', app_config.upper_bound,
+        '--inactive-scan-interval', app_config.inactive_scan_interval,
+        '--active-scan-interval', app_config.active_scan_interval,
     ]]
 
 
 @pytest.fixture
-def app(sys_args):
-    parser = create_parser('default')
-    app = service.create_app(parser=parser, raw_args=sys_args[1:])
+def app(app_config):
+    app = service.create_app(app_config)
     return app
 
 
 @pytest.fixture
-async def client(app, aiohttp_client, aiohttp_server):
+async def setup(app):
+    pass
+
+
+@pytest.fixture
+async def client(app, setup, aiohttp_client, aiohttp_server):
     """Allows patching the app or aiohttp_client before yielding it.
 
     Any tests wishing to add custom behavior to app can override the fixture
@@ -69,4 +80,6 @@ async def client(app, aiohttp_client, aiohttp_server):
         LOGGER.debug(f'Feature "{name}" = {impl}')
     LOGGER.debug(app.on_startup)
 
-    return await aiohttp_client(await aiohttp_server(app))
+    test_server: test_utils.TestServer = await aiohttp_server(app)
+    test_client: test_utils.TestClient = await aiohttp_client(test_server)
+    return test_client
