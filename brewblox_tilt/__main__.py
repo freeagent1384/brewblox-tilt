@@ -1,3 +1,5 @@
+import logging
+
 from brewblox_service import mqtt, scheduler, service
 
 from brewblox_tilt import broadcaster, broadcaster_sim
@@ -17,12 +19,16 @@ def create_parser():
                         'Out-of-bounds measurement values will be discarded. [%(default)s]',
                         type=float,
                         default=2)
+    parser.add_argument('--scan-duration',
+                        help='Duration (in seconds) of Bluetooth scans. [%(default)s] (minimum 1s)',
+                        type=float,
+                        default=5)
     parser.add_argument('--inactive-scan-interval',
-                        help='Interval (in seconds) between broadcasts while searching for devices. [%(default)s]',
+                        help='Interval (in seconds) between Bluetooth scans. [%(default)s] (minimum 0s)',
                         type=float,
                         default=5)
     parser.add_argument('--active-scan-interval',
-                        help='Interval (in seconds) between broadcasts when devices are active. [%(default)s]',
+                        help='Interval (in seconds) between Bluetooth scans. [%(default)s] (minimum 0s)',
                         type=float,
                         default=10)
     parser.add_argument('--simulate',
@@ -32,8 +38,6 @@ def create_parser():
                         'The values for this argument will be used as color',
                         default=None)
 
-    # Assumes a default configuration of running with --net=host
-    parser.set_defaults(mqtt_protocol='wss', mqtt_host='172.17.0.1')
     return parser
 
 
@@ -50,6 +54,10 @@ def main():
             broadcaster_sim.setup(app)
         else:
             broadcaster.setup(app)
+
+    if config.debug:
+        logging.getLogger('aiomqtt').setLevel(logging.INFO)
+        logging.getLogger('bleak.backends.bluezdbus.manager').setLevel(logging.INFO)
 
     # We have no meaningful REST API, so we set listen_http to False
     service.run_app(app, setup(), listen_http=False)

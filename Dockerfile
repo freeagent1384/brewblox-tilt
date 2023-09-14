@@ -1,4 +1,4 @@
-FROM python:3.9-bullseye as base
+FROM python:3.11-bookworm as base
 
 ENV PIP_EXTRA_INDEX_URL=https://www.piwheels.org/simple
 ENV PIP_FIND_LINKS=/wheeley
@@ -11,17 +11,12 @@ RUN set -ex \
     && pip3 wheel --wheel-dir=/wheeley -r /app/dist/requirements.txt \
     && pip3 wheel --wheel-dir=/wheeley /app/dist/*.tar.gz
 
-FROM python:3.9-slim-bullseye
+FROM python:3.11-slim-bookworm
 WORKDIR /app
 
 COPY --from=base /wheeley /wheeley
 
 RUN set -ex \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
-        libbluetooth-dev \
-        libatlas-base-dev \
-    && rm -rf /var/lib/apt/lists/* \
     && pip3 install --no-index --find-links=/wheeley brewblox-tilt \
     && pip3 freeze \
     && rm -rf /wheeley

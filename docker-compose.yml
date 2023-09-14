@@ -1,15 +1,14 @@
 version: "3.7"
 services:
   eventbus:
-    image: brewblox/mosquitto:develop
+    image: ghcr.io/brewblox/mosquitto:develop
     ports:
       - "1883:1883"
   tilt:
     # Manually build the "local" image before use
     image: ghcr.io/brewblox/brewblox-tilt:local
     privileged: true
-    network_mode: host
-    command: --mqtt-protocol=mqtt --debug --simulate orange red
+    command: --debug
     restart: unless-stopped
     volumes:
       - type: bind
@@ -18,3 +17,6 @@ services:
       - type: bind
         source: ./share
         target: /share
+      - type: bind
+        source: /var/run/dbus
+        target: /var/run/dbus

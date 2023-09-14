@@ -41,6 +41,7 @@ def app_config() -> ServiceConfig:
         # From brewblox_tilt
         lower_bound=0.5,
         upper_bound=2,
+        scan_duration=5,
         active_scan_interval=20,
         inactive_scan_interval=5,
         simulate=None,
