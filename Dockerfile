@@ -9,6 +9,8 @@ RUN <<EOF
     set -ex
 
     mkdir /wheeley
+    python3 -m venv .venv
+    . .venv/bin/activate
     pip3 install --upgrade pip wheel
     pip3 wheel --wheel-dir=/wheeley -r /app/dist/requirements.txt
     pip3 wheel --wheel-dir=/wheeley /app/dist/*.tar.gz
@@ -22,9 +24,16 @@ COPY --from=base /wheeley /wheeley
 RUN <<EOF
     set -ex
 
+    apt-get update
+    apt-get install -y --no-install-recommends \
+        libopenblas-dev
+    rm -rf /var/cache/apt/archives /var/lib/apt/lists
+
+    python3 -m venv .venv
+    . .venv/bin/activate
     pip3 install --no-index --find-links=/wheeley brewblox-tilt
     pip3 freeze
     rm -rf /wheeley
 EOF
 
-ENTRYPOINT ["python3", "-m", "brewblox_tilt"]
+ENTRYPOINT . .venv/bin/activate; python3 -m brewblox_tilt
