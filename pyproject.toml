@@ -14,9 +14,10 @@ python = "~3.11"
 brewblox-service = "^3.3.2"
 Pint = "^0.22"
 "ruamel.yaml" = "^0.17.17"
-numpy = "^1.25.2"
+numpy = "1.25.2"
 bleak = "^0.21.1"
 construct = "^2.10.68"
+ninja = "1.10.2.3"
 
 
 [tool.poetry.group.dev.dependencies]
