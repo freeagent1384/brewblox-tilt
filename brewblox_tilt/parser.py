@@ -1,54 +1,30 @@
 import csv
-from dataclasses import dataclass
+import json
+import logging
+from contextvars import ContextVar
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
-from brewblox_service import brewblox_logger
-from pint import Quantity, UnitRegistry
+from pint import UnitRegistry
 
-from brewblox_tilt import const, device
-from brewblox_tilt.models import ServiceConfig
+from . import const, mqtt, stored, utils
+from .models import TiltEvent, TiltMessage, TiltTemperatureSync
 
-LOGGER = brewblox_logger(__name__)
-ureg = UnitRegistry()
-Q_: Quantity = ureg.Quantity
+_UREG: ContextVar['UnitRegistry'] = ContextVar('parser.UnitRegistry')
+CV: ContextVar['EventDataParser'] = ContextVar('parser.EventDataParser')
 
-
-@dataclass
-class TiltEvent:
-    mac: str
-    uuid: str
-    major: int
-    minor: int
-    txpower: int
-    rssi: int
+LOGGER = logging.getLogger(__name__)
 
 
-@dataclass
-class TiltTemperatureSync:
-    type: str
-    service: str
-    block: str
-
-
-@dataclass
-class TiltMessage:
-    name: str
-    mac: str
-    color: str
-    data: dict
-    sync: list[TiltTemperatureSync]
-
-
-def deg_f_to_c(value_f: Optional[float]) -> Optional[float]:
+def deg_f_to_c(value_f: float | None) -> float | None:
     if value_f is None:
         return None
-    value_c = Q_(value_f, ureg.degF).to('degC').magnitude
+    ureg = _UREG.get()
+    value_c = ureg.Quantity(value_f, ureg.degF).to('degC').magnitude
     return round(value_c, 2)
 
 
-def sg_to_plato(sg: Optional[float]) -> Optional[float]:
+def sg_to_plato(sg: float | None) -> float | None:
     if sg is None:
         return None
     # From https://www.brewersfriend.com/plato-to-sg-conversion-chart/
@@ -60,10 +36,11 @@ def sg_to_plato(sg: Optional[float]) -> Optional[float]:
 
 
 class Calibrator():
-    def __init__(self, file: Union[Path, str]) -> None:
+    def __init__(self, file: Path | str) -> None:
         self.cal_polys: dict[str, np.poly1d] = {}
         self.keys: set[str] = set()
         self.path = Path(file)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch()
         self.path.chmod(0o666)
 
@@ -109,7 +86,7 @@ class Calibrator():
 
         LOGGER.info(f'Calibration values loaded from `{self.path}`: keys={*self.cal_polys.keys(),}')
 
-    def calibrated_value(self, key_candidates: list[str], value: float, ndigits=0) -> Optional[float]:
+    def calibrated_value(self, key_candidates: list[str], value: float, ndigits=0) -> float | None:
         # Use polynomials calculated above to calibrate values
         # Both MAC and device name are valid keys in calibration files
         # Check whether any of the given keys is present
@@ -120,18 +97,17 @@ class Calibrator():
 
 
 class EventDataParser():
-    def __init__(self, app):
-        config: ServiceConfig = app['config']
+    def __init__(self):
+        config = utils.get_config()
         self.lower_bound = config.lower_bound
         self.upper_bound = config.upper_bound
 
-        const.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        self.devconfig = device.DeviceConfig(const.DEVICES_FILE_PATH)
+        self.devconfig = stored.DeviceConfig(const.DEVICES_FILE_PATH)
         self.session_macs: set[str] = set()
         self.sg_cal = Calibrator(const.SG_CAL_FILE_PATH)
         self.temp_cal = Calibrator(const.TEMP_CAL_FILE_PATH)
 
-    def _decode_event_data(self, event: TiltEvent) -> Optional[dict]:
+    def _decode_event_data(self, event: TiltEvent) -> dict | None:
         """
         Extract raw temp and SG values from the event data object.
 
@@ -170,7 +146,7 @@ class EventDataParser():
             'is_pro': is_tilt_pro,
         }
 
-    def _parse_event(self, event: TiltEvent) -> Optional[TiltMessage]:
+    def _parse_event(self, event: TiltEvent) -> TiltMessage | None:
         """
         Adds raw and calibrated values for a single Tilt event to the combined `message` object.
 
@@ -269,3 +245,15 @@ class EventDataParser():
     def apply_custom_names(self, names: dict[str, str]) -> None:
         self.devconfig.apply_custom_names(names)
         self.devconfig.commit()
+
+
+def setup():
+    config = utils.get_config()
+    mqtt_client = mqtt.CV.get()
+
+    _UREG.set(UnitRegistry())
+    CV.set(EventDataParser())
+
+    @mqtt_client.subscribe(f'brewcast/tilt/{config.name}/names')
+    async def on_names_change(client, topic, payload, qos, properties):
+        CV.get().apply_custom_names(json.loads(payload))

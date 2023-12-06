@@ -5,82 +5,78 @@ Any fixtures declared here are available to all test functions in this directory
 
 
 import logging
+from pathlib import Path
+from typing import Generator
 
 import pytest
-from aiohttp import test_utils
-from brewblox_service import brewblox_logger, features, service
+from fastapi import FastAPI
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource
+from pytest_docker.plugin import Services as DockerServices
+from starlette.testclient import TestClient
 
+from brewblox_tilt import app_factory, utils
 from brewblox_tilt.models import ServiceConfig
 
-LOGGER = brewblox_logger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='session', autouse=True)
-def log_enabled():
-    """Sets log level to DEBUG for all test functions.
-    Allows all logged messages to be captured during pytest runs"""
-    logging.getLogger().setLevel(logging.DEBUG)
-    logging.captureWarnings(True)
+class TestConfig(ServiceConfig):
+    """
+    An override for ServiceConfig that only uses
+    settings provided to __init__()
+
+    This makes tests independent from env values
+    and the content of .appenv
+    """
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (init_settings,)
 
 
-@pytest.fixture
-def app_config() -> ServiceConfig:
-    return ServiceConfig(
-        # From brewblox_service
-        name='test_app',
-        host='localhost',
-        port=1234,
+@pytest.fixture(autouse=True)
+def config(monkeypatch: pytest.MonkeyPatch,
+           docker_services: DockerServices,
+           ) -> Generator[ServiceConfig, None, None]:
+    cfg = TestConfig(
         debug=True,
-        mqtt_protocol='mqtt',
-        mqtt_host='eventbus',
-        mqtt_port=1883,
-        mqtt_path='/eventbus',
-        history_topic='brewcast/history',
-        state_topic='brewcast/state',
-
-        # From brewblox_tilt
-        lower_bound=0.5,
-        upper_bound=2,
-        scan_duration=5,
-        active_scan_interval=20,
-        inactive_scan_interval=5,
-        simulate=None,
+        mqtt_host='localhost',
+        mqtt_port=docker_services.port_for('mqtt', 1883),
     )
+    monkeypatch.setattr(utils, 'get_config', lambda: cfg)
+    yield cfg
+
+
+@pytest.fixture(scope='session')
+def docker_compose_file():
+    return Path('./test/docker-compose.yml').resolve()
+
+
+@pytest.fixture(autouse=True)
+def setup_logging(config):
+    app_factory.setup_logging(True)
 
 
 @pytest.fixture
-def sys_args(app_config: ServiceConfig) -> list:
-    return [str(v) for v in [
-        'app_name',
-        '--lower-bound', app_config.lower_bound,
-        '--upper-bound', app_config.upper_bound,
-        '--inactive-scan-interval', app_config.inactive_scan_interval,
-        '--active-scan-interval', app_config.active_scan_interval,
-    ]]
+def app() -> FastAPI:
+    """
+    Override this in test modules to bootstrap required dependencies.
 
-
-@pytest.fixture
-def app(app_config):
-    app = service.create_app(app_config)
+    IMPORTANT: This must NOT be an async fixture.
+    Contextvars assigned in async fixtures are invisible to test functions.
+    """
+    app = FastAPI()
     return app
 
 
 @pytest.fixture
-async def setup(app):
-    pass
-
-
-@pytest.fixture
-async def client(app, setup, aiohttp_client, aiohttp_server):
-    """Allows patching the app or aiohttp_client before yielding it.
-
-    Any tests wishing to add custom behavior to app can override the fixture
-    """
-    LOGGER.debug('Available features:')
-    for name, impl in app.get(features.FEATURES_KEY, {}).items():
-        LOGGER.debug(f'Feature "{name}" = {impl}')
-    LOGGER.debug(app.on_startup)
-
-    test_server: test_utils.TestServer = await aiohttp_server(app)
-    test_client: test_utils.TestClient = await aiohttp_client(test_server)
-    return test_client
+def client(app: FastAPI) -> Generator[TestClient, None, None]:
+    with TestClient(app=app, base_url='http://test') as c:
+        yield c

@@ -1,14 +1,14 @@
+import logging
 import re
 from pathlib import Path
 from typing import Union
 
-from brewblox_service import brewblox_logger
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
-from brewblox_tilt import const
+from . import const
 
-LOGGER = brewblox_logger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 class DeviceConfig():
@@ -18,6 +18,7 @@ class DeviceConfig():
         self.changed = False
         self.device_config = {}
 
+        self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch()
         self.path.chmod(0o666)
 
