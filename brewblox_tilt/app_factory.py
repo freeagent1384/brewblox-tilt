@@ -4,7 +4,7 @@ from pprint import pformat
 
 from fastapi import FastAPI
 
-from . import broadcaster, mqtt, parser, scanner, utils
+from . import broadcaster, mqtt, parser, scanner, stored, utils
 
 LOGGER = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ def setup_logging(debug: bool):
     logging.getLogger('httpcore').setLevel(logging.WARN)
     logging.getLogger('uvicorn.access').setLevel(unimportant_level)
     logging.getLogger('uvicorn.error').disabled = True
+    logging.getLogger('bleak.backends.bluezdbus.manager').setLevel(unimportant_level)
 
 
 @asynccontextmanager
@@ -42,6 +43,7 @@ def create_app() -> FastAPI:
 
     # Call setup functions for modules
     mqtt.setup()
+    stored.setup()
     parser.setup()
     scanner.setup()
 

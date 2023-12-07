@@ -86,6 +86,7 @@ class Simulation:
             if color.upper() == simulated.upper()
         ), '')
         self.mac = self.uuid.replace('-', '').upper()[:12]
+        LOGGER.info(f'Simulation: {simulated}={self.mac}')
 
         self.interval = 1
         self.temp_f = 68
@@ -99,10 +100,10 @@ class Simulation:
 
         return TiltEvent(mac=self.mac,
                          uuid=self.uuid,
-                         major=self.temp_f,
-                         minor=self.raw_sg,
+                         major=int(self.temp_f),
+                         minor=int(self.raw_sg),
                          txpower=0,
-                         rssi=self.rssi)
+                         rssi=int(self.rssi))
 
 
 class SimulatedScanner(BaseScanner):

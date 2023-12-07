@@ -26,7 +26,7 @@ sudo apt update && sudo apt install -y libbluetooth-dev
 To build a local Docker image:
 
 ```bash
-poetry run invoke local-docker
+poetry run invoke image
 ```
 
 This builds the Python package and then the Dockerfile as `ghcr.io/brewblox/brewblox-tilt:local`.

@@ -1,13 +1,9 @@
-import csv
-import json
 import logging
 from contextvars import ContextVar
-from pathlib import Path
 
-import numpy as np
 from pint import UnitRegistry
 
-from . import const, mqtt, stored, utils
+from . import const, stored, utils
 from .models import TiltEvent, TiltMessage, TiltTemperatureSync
 
 _UREG: ContextVar['UnitRegistry'] = ContextVar('parser.UnitRegistry')
@@ -35,77 +31,13 @@ def sg_to_plato(sg: float | None) -> float | None:
     return round(plato, 3)
 
 
-class Calibrator():
-    def __init__(self, file: Path | str) -> None:
-        self.cal_polys: dict[str, np.poly1d] = {}
-        self.keys: set[str] = set()
-        self.path = Path(file)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.touch()
-        self.path.chmod(0o666)
-
-        cal_tables = {}
-
-        # Load calibration CSV
-        with open(self.path, newline='') as f:
-            reader = csv.reader(f, delimiter=',')
-            for line in reader:
-                key = None  # MAC or name
-                uncal = None
-                cal = None
-
-                key = line[0].strip().lower()
-
-                try:
-                    uncal = float(line[1].strip())
-                except ValueError:
-                    LOGGER.warning(f'Uncalibrated value `{line[1]}` not a float. Ignoring line.')
-                    continue
-
-                try:
-                    cal = float(line[2].strip())
-                except ValueError:
-                    LOGGER.warning(f'Calibrated value `{line[2]}` not a float. Ignoring line.')
-                    continue
-
-                self.keys.add(key)
-                data = cal_tables.setdefault(key, {
-                    'uncal': [],
-                    'cal': [],
-                })
-                data['uncal'].append(uncal)
-                data['cal'].append(cal)
-
-        # Use polyfit to fit a cubic polynomial curve to calibration values
-        # Then create a polynomical from the values produced by polyfit
-        for key, data in cal_tables.items():
-            x = np.array(data['uncal'])
-            y = np.array(data['cal'])
-            z = np.polyfit(x, y, 3)
-            self.cal_polys[key] = np.poly1d(z)
-
-        LOGGER.info(f'Calibration values loaded from `{self.path}`: keys={*self.cal_polys.keys(),}')
-
-    def calibrated_value(self, key_candidates: list[str], value: float, ndigits=0) -> float | None:
-        # Use polynomials calculated above to calibrate values
-        # Both MAC and device name are valid keys in calibration files
-        # Check whether any of the given keys is present
-        for key in [k.lower() for k in key_candidates]:
-            if key in self.cal_polys:
-                return round(self.cal_polys[key](value), ndigits)
-        return None
-
-
 class EventDataParser():
     def __init__(self):
         config = utils.get_config()
         self.lower_bound = config.lower_bound
         self.upper_bound = config.upper_bound
 
-        self.devconfig = stored.DeviceConfig(const.DEVICES_FILE_PATH)
         self.session_macs: set[str] = set()
-        self.sg_cal = Calibrator(const.SG_CAL_FILE_PATH)
-        self.temp_cal = Calibrator(const.TEMP_CAL_FILE_PATH)
 
     def _decode_event_data(self, event: TiltEvent) -> dict | None:
         """
@@ -152,13 +84,17 @@ class EventDataParser():
 
         If the event is invalid, `message` is returned unchanged.
         """
+        devices = stored.DEVICES.get()
+        sg_cal = stored.SG_CAL.get()
+        temp_cal = stored.TEMP_CAL.get()
+
         decoded = self._decode_event_data(event)
         if decoded is None:
             return None
 
         color = decoded['color']
         mac = event.mac.strip().replace(':', '').upper()
-        name = self.devconfig.lookup(mac, color)
+        name = devices.lookup(mac, color)
 
         if mac not in self.session_macs:
             self.session_macs.add(mac)
@@ -171,15 +107,15 @@ class EventDataParser():
         temp_digits = 1 if is_pro else 0
         sg_digits = 4 if is_pro else 3
 
-        cal_temp_f = self.temp_cal.calibrated_value([mac, name],
-                                                    raw_temp_f,
-                                                    temp_digits)
+        cal_temp_f = temp_cal.calibrated_value([mac, name],
+                                               raw_temp_f,
+                                               temp_digits)
         cal_temp_c = deg_f_to_c(cal_temp_f)
 
         raw_sg = decoded['sg']
-        cal_sg = self.sg_cal.calibrated_value([mac, name],
-                                              raw_sg,
-                                              sg_digits)
+        cal_sg = sg_cal.calibrated_value([mac, name],
+                                         raw_sg,
+                                         sg_digits)
 
         raw_plato = sg_to_plato(raw_sg)
         cal_plato = sg_to_plato(cal_sg)
@@ -209,7 +145,7 @@ class EventDataParser():
 
         sync: list[TiltTemperatureSync] = []
 
-        for src in self.devconfig.sync:
+        for src in devices.sync:
             sync_tilt = src.get('tilt')
             sync_type = src.get('type')
             sync_service = src.get('service')
@@ -238,22 +174,11 @@ class EventDataParser():
         Converts a list of Tilt events into a list of Tilt message.
         Invalid events are excluded.
         """
-        messages = [self._parse_event(evt) for evt in events]
-        self.devconfig.commit()
+        with stored.DEVICES.get().autocommit():
+            messages = [self._parse_event(evt) for evt in events]
         return [msg for msg in messages if msg is not None]
-
-    def apply_custom_names(self, names: dict[str, str]) -> None:
-        self.devconfig.apply_custom_names(names)
-        self.devconfig.commit()
 
 
 def setup():
-    config = utils.get_config()
-    mqtt_client = mqtt.CV.get()
-
     _UREG.set(UnitRegistry())
     CV.set(EventDataParser())
-
-    @mqtt_client.subscribe(f'brewcast/tilt/{config.name}/names')
-    async def on_names_change(client, topic, payload, qos, properties):
-        CV.get().apply_custom_names(json.loads(payload))

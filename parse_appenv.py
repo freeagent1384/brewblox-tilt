@@ -1,4 +1,5 @@
 import argparse
+import json
 import shlex
 import sys
 
@@ -31,5 +32,12 @@ if __name__ == '__main__':
         print(f'WARNING: ignoring unknown CMD arguments: {unknown}', file=sys.stderr)
     output = [f'brewblox_{k}={shlex.quote(str(v))}'
               for k, v in vars(args).items()
-              if v is not None and v is not False]
+              if v is not None
+              and v is not False
+              and k != 'simulate']
     print(*output, sep='\n')
+
+    # Special exception for list variables
+    if args.simulate:
+        sim_names = json.dumps(list(args.simulate))
+        print(f"brewblox_simulate='{sim_names}'")

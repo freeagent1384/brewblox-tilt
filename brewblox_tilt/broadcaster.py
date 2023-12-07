@@ -7,15 +7,21 @@ from . import mqtt, scanner, utils
 LOGGER = logging.getLogger(__name__)
 
 
-class Broadcaster():
+class Broadcaster:
     def __init__(self):
         config = utils.get_config()
         self.name = config.name
+
         self.scan_duration = max(config.scan_duration, 1)
         self.inactive_scan_interval = max(config.inactive_scan_interval, 0)
         self.active_scan_interval = max(config.active_scan_interval, 0)
+
         self.state_topic = f'brewcast/state/{self.name}'
         self.history_topic = f'brewcast/history/{self.name}'
+
+        # Changes based on scan response
+        self.scan_interval = 1
+        self.prev_num_messages = 0
 
     async def _run(self):
         mqtt_client = mqtt.CV.get()
@@ -43,7 +49,7 @@ class Broadcaster():
         if not messages:
             return
 
-        LOGGER.debug(messages)
+        LOGGER.debug('\n - '.join([str(v) for v in ['Messages:', *messages]]))
 
         # Publish history
         # Devices can share an event
