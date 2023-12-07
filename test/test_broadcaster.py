@@ -3,7 +3,7 @@ Tests brewblox_tilt.broadcaster
 """
 
 from contextlib import AsyncExitStack, asynccontextmanager
-from unittest.mock import ANY, Mock, call
+from unittest.mock import ANY, Mock
 
 import pytest
 from fastapi import FastAPI
