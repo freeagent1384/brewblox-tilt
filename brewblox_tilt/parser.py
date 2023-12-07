@@ -3,8 +3,9 @@ from contextvars import ContextVar
 
 from pint import UnitRegistry
 
-from . import const, stored, utils
+from . import const, utils
 from .models import TiltEvent, TiltMessage, TiltTemperatureSync
+from .stored import calibration, devices
 
 _UREG: ContextVar['UnitRegistry'] = ContextVar('parser.UnitRegistry')
 CV: ContextVar['EventDataParser'] = ContextVar('parser.EventDataParser')
@@ -84,9 +85,9 @@ class EventDataParser():
 
         If the event is invalid, `message` is returned unchanged.
         """
-        devices = stored.DEVICES.get()
-        sg_cal = stored.SG_CAL.get()
-        temp_cal = stored.TEMP_CAL.get()
+        device_config = devices.CV.get()
+        sg_cal = calibration.SG_CAL.get()
+        temp_cal = calibration.TEMP_CAL.get()
 
         decoded = self._decode_event_data(event)
         if decoded is None:
@@ -94,7 +95,7 @@ class EventDataParser():
 
         color = decoded['color']
         mac = event.mac.strip().replace(':', '').upper()
-        name = devices.lookup(mac, color)
+        name = device_config.lookup(mac, color)
 
         if mac not in self.session_macs:
             self.session_macs.add(mac)
@@ -145,7 +146,7 @@ class EventDataParser():
 
         sync: list[TiltTemperatureSync] = []
 
-        for src in devices.sync:
+        for src in device_config.sync:
             sync_tilt = src.get('tilt')
             sync_type = src.get('type')
             sync_service = src.get('service')
@@ -174,7 +175,7 @@ class EventDataParser():
         Converts a list of Tilt events into a list of Tilt message.
         Invalid events are excluded.
         """
-        with stored.DEVICES.get().autocommit():
+        with devices.CV.get().autocommit():
             messages = [self._parse_event(evt) for evt in events]
         return [msg for msg in messages if msg is not None]
 

@@ -1,6 +1,7 @@
 """
-Tests brewblox_tilt.config
+Tests brewblox_tilt.stored.devices
 """
+
 import json
 from io import FileIO
 from tempfile import NamedTemporaryFile
@@ -8,15 +9,16 @@ from tempfile import NamedTemporaryFile
 import pytest
 from pytest_mock import MockerFixture
 
-from brewblox_tilt import mqtt, stored
+from brewblox_tilt import mqtt
+from brewblox_tilt.stored import devices
 
-TESTED = stored.__name__
+TESTED = devices.__name__
 
 
 @pytest.fixture(autouse=True)
 def setup(tempfiles):
     mqtt.setup()
-    stored.setup()
+    devices.setup()
 
 
 def default_names():
@@ -29,13 +31,13 @@ def default_names():
 
 
 def test_load():
-    registry = stored.DEVICES.get()
+    registry = devices.CV.get()
     assert registry.names == default_names()
 
 
 def test_empty():
     f = NamedTemporaryFile()
-    registry = stored.DeviceConfig(f.name)
+    registry = devices.DeviceConfig(f.name)
     assert registry.names == {}
 
 
@@ -48,7 +50,7 @@ def test_sanitize():
         },
     }).encode())
     f.flush()
-    registry = stored.DeviceConfig(f.name)
+    registry = devices.DeviceConfig(f.name)
     assert registry.names == {
         'DD7F97FC141E': '__Purple __',
         'EE7F97FC141E': 'Unknown',
@@ -56,7 +58,7 @@ def test_sanitize():
 
 
 def test_lookup():
-    registry = stored.DEVICES.get()
+    registry = devices.CV.get()
     assert registry.lookup('DD7F97FC141E', '') == 'Black'
     assert registry.lookup('AA7F97FC141E', 'Red') == 'Red'
     assert registry.lookup('AB7F97FC141E', 'Red') == 'Red-2'
@@ -76,7 +78,7 @@ def test_lookup():
 
 
 def test_apply_custom_names():
-    registry = stored.DEVICES.get()
+    registry = devices.CV.get()
     registry.apply_custom_names({
         'AA7F97FC141E': 'Red',
         'BB7F97FC141E': 'Red',  # Duplicate name
@@ -96,7 +98,7 @@ def test_apply_custom_names():
 
 
 def test_autocommit(devices_file: FileIO, mocker: MockerFixture):
-    registry = stored.DeviceConfig(devices_file.name)
+    registry = devices.DeviceConfig(devices_file.name)
     mocker.patch.object(registry, 'yaml', wraps=registry.yaml)
 
     with registry.autocommit():
@@ -104,30 +106,15 @@ def test_autocommit(devices_file: FileIO, mocker: MockerFixture):
         registry.lookup('FF7F97FC141E', 'Red 2')
 
         # Changes are not yet committed to file
-        registry2 = stored.DeviceConfig(devices_file.name)
+        registry2 = devices.DeviceConfig(devices_file.name)
         assert registry2.names == default_names()
         assert registry.yaml.dump.call_count == 0
 
     assert registry.yaml.dump.call_count == 1
 
     # Changes are committed and present in file
-    registry3 = stored.DeviceConfig(devices_file.name)
+    registry3 = devices.DeviceConfig(devices_file.name)
     assert registry3.names == {
         **default_names(),
         'FF7F97FC141E': 'Red 2',
     }
-
-
-def test_calibrator():
-    calibrator = stored.SG_CAL.get()
-    assert 'black' in calibrator.cal_polys
-    assert 'ferment 1 red' in calibrator.cal_polys
-    assert calibrator.cal_polys['black'].order == 3
-
-    cal_black_v = calibrator.calibrated_value(['Dummy', 'Black'], 1.002, 3)
-    assert cal_black_v == pytest.approx(2, 0.1)
-
-    cal_red_v = calibrator.calibrated_value(['Ferment 1 red'], 1.002, 3)
-    assert cal_red_v == pytest.approx(3, 0.1)
-
-    assert calibrator.calibrated_value(['Dummy'], 1.002, 3) is None

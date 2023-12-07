@@ -6,13 +6,15 @@ from . import mqtt, scanner, utils
 
 LOGGER = logging.getLogger(__name__)
 
+EXCEPTION_DELAY_S = 30
+
 
 class Broadcaster:
     def __init__(self):
         config = utils.get_config()
         self.name = config.name
 
-        self.scan_duration = max(config.scan_duration, 1)
+        self.scan_duration = max(config.scan_duration, 0.1)
         self.inactive_scan_interval = max(config.inactive_scan_interval, 0)
         self.active_scan_interval = max(config.active_scan_interval, 0)
 
@@ -20,10 +22,10 @@ class Broadcaster:
         self.history_topic = f'brewcast/history/{self.name}'
 
         # Changes based on scan response
-        self.scan_interval = 1
+        self.scan_interval = 0
         self.prev_num_messages = 0
 
-    async def _run(self):
+    async def run(self):
         mqtt_client = mqtt.CV.get()
         messages = await scanner.CV.get().scan(self.scan_duration)
         curr_num_messages = len(messages)
@@ -96,10 +98,10 @@ class Broadcaster:
         while True:
             try:
                 await asyncio.sleep(self.scan_interval)
-                await self._run()
+                await self.run()
             except Exception as ex:
                 LOGGER.error(ex, exc_info=config.debug)
-                await asyncio.sleep(5)
+                await asyncio.sleep(EXCEPTION_DELAY_S)
 
 
 @asynccontextmanager

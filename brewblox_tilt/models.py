@@ -12,7 +12,7 @@ class ServiceConfig(BaseSettings):
         json_schema_extra='ignore',
     )
 
-    name: str = 'history'
+    name: str = 'tilt'
     debug: bool = False
 
     mqtt_protocol: Literal['mqtt', 'mqtts'] = 'mqtt'

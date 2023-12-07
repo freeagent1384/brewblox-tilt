@@ -4,7 +4,8 @@ from pprint import pformat
 
 from fastapi import FastAPI
 
-from . import broadcaster, mqtt, parser, scanner, stored, utils
+from . import broadcaster, mqtt, parser, scanner, utils
+from .stored import devices
 
 LOGGER = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def create_app() -> FastAPI:
 
     # Call setup functions for modules
     mqtt.setup()
-    stored.setup()
+    devices.setup()
     parser.setup()
     scanner.setup()
 

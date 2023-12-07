@@ -4,7 +4,8 @@ Tests brewblox_tilt.parser
 
 import pytest
 
-from brewblox_tilt import const, mqtt, parser, stored
+from brewblox_tilt import const, mqtt, parser
+from brewblox_tilt.stored import calibration, devices
 
 TESTED = parser.__name__
 
@@ -12,13 +13,14 @@ TESTED = parser.__name__
 @pytest.fixture(autouse=True)
 def setup(tempfiles):
     mqtt.setup()
-    stored.setup()
+    calibration.setup()
+    devices.setup()
     parser.setup()
 
 
 def test_data_parser(tilt_macs: dict):
     data_parser = parser.CV.get()
-    devices = stored.DEVICES.get()
+    device_config = devices.CV.get()
 
     red_mac = tilt_macs['red']
     black_mac = tilt_macs['black']
@@ -28,7 +30,7 @@ def test_data_parser(tilt_macs: dict):
     purple_uuid = next((k for k, v in const.TILT_UUID_COLORS.items() if v == 'Purple'))
     black_uuid = next((k for k, v in const.TILT_UUID_COLORS.items() if v == 'Black'))
 
-    devices.apply_custom_names({red_mac: 'Ferment 1 red'})
+    device_config.apply_custom_names({red_mac: 'Ferment 1 red'})
 
     messages = data_parser.parse([
         # Valid red - SG calibration data

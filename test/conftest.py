@@ -52,6 +52,8 @@ def config(monkeypatch: pytest.MonkeyPatch,
         debug=True,
         mqtt_host='localhost',
         mqtt_port=docker_services.port_for('mqtt', 1883),
+        scan_duration=0.1,
+        simulate=['Pink', 'Orange'],
     )
     monkeypatch.setattr(utils, 'get_config', lambda: cfg)
     yield cfg
