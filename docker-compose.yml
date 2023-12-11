@@ -8,12 +8,21 @@ services:
     # Manually build the "local" image before use
     image: ghcr.io/brewblox/brewblox-tilt:local
     privileged: true
-    command: --debug
+    environment:
+      - BREWBLOX_DEBUG=True
+      - UVICORN_RELOAD=True
+      # - BREWBLOX_SIMULATE=["Mauve", "Lila"]
     restart: unless-stopped
     volumes:
       - type: bind
         source: ./brewblox_tilt
         target: /app/brewblox_tilt
+      - type: bind
+        source: ./entrypoint.sh
+        target: /app/entrypoint.sh
+      - type: bind
+        source: ./parse_appenv.py
+        target: /app/parse_appenv.py
       - type: bind
         source: ./share
         target: /share
