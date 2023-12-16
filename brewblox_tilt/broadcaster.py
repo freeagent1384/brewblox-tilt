@@ -100,7 +100,7 @@ class Broadcaster:
                 await asyncio.sleep(self.scan_interval)
                 await self.run()
             except Exception as ex:
-                LOGGER.error(ex, exc_info=config.debug)
+                LOGGER.error(utils.strex(ex), exc_info=config.debug)
                 await asyncio.sleep(EXCEPTION_DELAY_S)
 
 
