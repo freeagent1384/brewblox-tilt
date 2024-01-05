@@ -1,13 +1,13 @@
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class ServiceConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_file='.appenv',
-        env_prefix='brewblox_',
+        env_prefix='brewblox_tilt_',
         case_sensitive=False,
         json_schema_extra='ignore',
     )
@@ -24,7 +24,7 @@ class ServiceConfig(BaseSettings):
     scan_duration: float = 5
     inactive_scan_interval: float = 5
     active_scan_interval: float = 10
-    simulate: list[str] | None = None
+    simulate: list[str] = Field(default_factory=list)
 
 
 class TiltEvent(BaseModel):

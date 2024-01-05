@@ -9,9 +9,9 @@ services:
     image: ghcr.io/brewblox/brewblox-tilt:local
     privileged: true
     environment:
-      - BREWBLOX_DEBUG=True
       - UVICORN_RELOAD=True
-      # - BREWBLOX_SIMULATE=["Mauve", "Lila"]
+      - BREWBLOX_TILT_DEBUG=True
+      # - BREWBLOX_TILT_SIMULATE=["Mauve","Lila"]
     restart: unless-stopped
     volumes:
       - type: bind

@@ -30,7 +30,7 @@ if __name__ == '__main__':
     args, unknown = parse_cmd_args(sys.argv[1:])
     if unknown:
         print(f'WARNING: ignoring unknown CMD arguments: {unknown}', file=sys.stderr)
-    output = [f'brewblox_{k}={shlex.quote(str(v))}'
+    output = [f'brewblox_tilt_{k}={shlex.quote(str(v))}'
               for k, v in vars(args).items()
               if v is not None
               and v is not False
@@ -40,4 +40,4 @@ if __name__ == '__main__':
     # Special exception for list variables
     if args.simulate:
         sim_names = json.dumps(list(args.simulate))
-        print(f"brewblox_simulate='{sim_names}'")
+        print(f"brewblox_tilt_simulate='{sim_names}'")
